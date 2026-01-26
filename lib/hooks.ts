@@ -81,6 +81,23 @@ export function useItem(id: string | null) {
   }, { revalidateOnFocus: false })
 }
 
+export function useItemBySlug(slug: string | null) {
+  return useSWR(slug ? ["item-slug", slug] : null, async () => {
+    const { data, error } = await supabase
+      .from('investigations')
+      .select('*')
+      .eq('slug', slug)
+      .eq('status', 'aprobado')
+      .single()
+    if (error) {
+      console.error('[useItemBySlug] Error:', error)
+      throw error
+    }
+    return data
+  }, { revalidateOnFocus: false })
+}
+
+
 // ============ Search ============
 
 export function useSearch(

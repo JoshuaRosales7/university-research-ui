@@ -124,16 +124,74 @@ export default function UploadPage() {
       const safeFileName = `${timestamp}-${randomId}-${baseName}.${fileExt}`
       const filePath = `${user.id}/${safeFileName}`
 
-      const { error: uploadError } = await supabase.storage
-        .from('investigations')
-        .upload(filePath, formData.file, {
-          cacheControl: '3600',
-          upsert: false
-        })
+      // Enhanced retry logic with exponential backoff
+      let uploadError: any = null
+      let uploadAttempts = 0
+      const maxAttempts = 3
+      const baseDelay = 1000 // 1 second
+
+      while (uploadAttempts < maxAttempts) {
+        try {
+          console.log(`[Upload] Attempt ${uploadAttempts + 1}/${maxAttempts}`)
+
+          // Create a fresh file blob for each attempt to avoid stale references
+          const fileBlob = new Blob([formData.file], { type: 'application/pdf' })
+
+          const { error } = await supabase.storage
+            .from('investigations')
+            .upload(filePath, fileBlob, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: 'application/pdf',
+            })
+
+          if (error) {
+            uploadError = error
+
+            // Check if it's an abort error
+            const isAbortError = error.message.includes('aborted') ||
+              error.message.includes('AbortError') ||
+              error.name === 'AbortError'
+
+            if (isAbortError && uploadAttempts < maxAttempts - 1) {
+              uploadAttempts++
+              const delay = baseDelay * Math.pow(2, uploadAttempts - 1) // Exponential backoff
+              console.log(`[Upload] Reintentando en ${delay}ms (${uploadAttempts}/${maxAttempts})...`)
+              await new Promise(resolve => setTimeout(resolve, delay))
+              continue
+            }
+
+            // If it's not an abort error or we've exhausted retries, throw
+            throw error
+          }
+
+          // Upload exitoso
+          uploadError = null
+          console.log('[Upload] Exitoso')
+          break
+        } catch (err: any) {
+          uploadError = err
+
+          const isAbortError = err.message?.includes('aborted') ||
+            err.message?.includes('AbortError') ||
+            err.name === 'AbortError'
+
+          if (isAbortError && uploadAttempts < maxAttempts - 1) {
+            uploadAttempts++
+            const delay = baseDelay * Math.pow(2, uploadAttempts - 1)
+            console.log(`[Upload] Reintentando en ${delay}ms (${uploadAttempts}/${maxAttempts})...`)
+            await new Promise(resolve => setTimeout(resolve, delay))
+            continue
+          }
+
+          // If we've exhausted retries or it's a different error, throw
+          throw err
+        }
+      }
 
       if (uploadError) {
         console.error('[Upload Error]:', uploadError)
-        throw new Error(`Error al subir archivo: ${uploadError.message}`)
+        throw new Error(`Error al subir archivo después de ${maxAttempts} intentos: ${uploadError.message}`)
       }
 
       setUploadProgress(70)
@@ -171,7 +229,17 @@ export default function UploadPage() {
       setTimeout(() => router.push("/dashboard/my-submissions"), 500)
     } catch (error: any) {
       console.error('[Submit Error]:', error)
-      setSubmitError(error?.message || 'Error desconocido al enviar')
+
+      // Filter out abort errors from user-facing messages
+      const isAbortError = error?.message?.includes('aborted') ||
+        error?.message?.includes('AbortError') ||
+        error?.name === 'AbortError'
+
+      if (isAbortError) {
+        setSubmitError('Error de conexión. Por favor, intenta nuevamente.')
+      } else {
+        setSubmitError(error?.message || 'Error desconocido al enviar')
+      }
     } finally {
       setIsSubmitting(false)
     }

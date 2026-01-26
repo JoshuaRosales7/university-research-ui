@@ -61,7 +61,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main content */}
       <div className={cn("transition-all duration-500 ease-in-out min-h-screen flex flex-col", sidebarCollapsed ? "md:ml-20" : "md:ml-64")}>
         <TopBar onMenuClick={() => setMobileOpen(!mobileOpen)} />
-        <main className="flex-1 p-4 lg:p-10 max-w-[1600px] mx-auto w-full relative z-10 animate-in fade-in slide-in-from-bottom-2 duration-700">
+        <main className="flex-1 px-4 md:px-6 lg:px-10 py-6 md:py-8 lg:py-10 max-w-[1600px] mx-auto w-full relative z-10 animate-in fade-in slide-in-from-bottom-2 duration-700">
           {children}
         </main>
       </div>

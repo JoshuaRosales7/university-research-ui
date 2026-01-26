@@ -129,6 +129,13 @@ export default function ResearchDetailPage({ params }: { params: Promise<{ id: s
                 </a>
               </Button>
             )}
+            {research.status === 'aprobado' && research.slug && (
+              <Button variant="outline" className="font-bold h-12 px-8 gap-2 rounded-xl border-emerald-500 text-emerald-700 hover:bg-emerald-50" asChild>
+                <Link href={`/research/${research.slug}`} target="_blank">
+                  <Globe className="h-4 w-4" /> Ver Página Pública
+                </Link>
+              </Button>
+            )}
             <Button variant="outline" className="font-bold h-12 px-8 gap-2 rounded-xl" onClick={handleShare}>
               <Share2 className="h-4 w-4" /> Compartir
             </Button>

@@ -233,6 +233,9 @@ export default function ProfilePage() {
                       <div>
                         <p className="text-sm font-bold">Actualizaciones Institucionales</p>
                         <p className="text-xs text-muted-foreground">Boletines y anuncios de la biblioteca.</p>
+                      </div><div>
+
+                        <p className="text-xs text-muted-foreground">V.0.0.2</p>
                       </div>
                       <Switch />
                     </div>

@@ -10,6 +10,9 @@ export const metadata: Metadata = {
   title: "Repositorio Institucional UNIS - Universidad del Istmo",
   description: "Plataforma de gestión de investigaciones académicas de la Universidad del Istmo, Guatemala. Saber para Servir.",
   generator: "v0.app",
+  verification: {
+    google: "boa-5Xj1MOr9EhdZnDsAD0cXrfLKvonLA3QWl3ZMjKY",
+  },
 }
 
 export default function RootLayout({

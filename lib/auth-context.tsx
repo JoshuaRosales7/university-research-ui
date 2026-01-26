@@ -72,35 +72,64 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const restoreSession = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession()
-
-      if (error) throw error
-
-      if (session?.user) {
-        const profile = await fetchProfile(session.user.id)
-        const appUser = convertToAppUser(session.user, profile)
-        setUser(appUser)
-      } else {
-        setUser(null)
-      }
-    } catch (error) {
-      console.error("[Auth] Session restoration error:", error)
-      setUser(null)
-    } finally {
-      setIsLoading(false)
-    }
-  }, [fetchProfile, convertToAppUser])
-
   useEffect(() => {
-    restoreSession()
+    // Create an AbortController for this effect lifecycle
+    const abortController = new AbortController()
+    let isActive = true
+
+    const initAuth = async () => {
+      if (!isActive) return
+
+      setIsLoading(true)
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession()
+
+        if (!isActive) return // Component unmounted
+
+        if (error) {
+          // Only log non-abort errors
+          if (error.message !== 'AbortError' && !error.message.includes('aborted')) {
+            console.error("[Auth] Session restoration error:", error)
+          }
+          setUser(null)
+          setIsLoading(false)
+          return
+        }
+
+        if (session?.user) {
+          const profile = await fetchProfile(session.user.id)
+          if (!isActive) return // Component unmounted during fetch
+
+          const appUser = convertToAppUser(session.user, profile)
+          setUser(appUser)
+        } else {
+          setUser(null)
+        }
+      } catch (error: any) {
+        if (!isActive) return
+
+        // Ignore abort errors - they're normal during React strict mode
+        if (error.name !== 'AbortError' && !error.message?.includes('aborted')) {
+          console.error("[Auth] Session restoration error:", error)
+        }
+        setUser(null)
+      } finally {
+        if (isActive) {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    initAuth()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isActive) return
+
       console.log("[Auth] Auth state change:", event)
       if (session?.user) {
         const profile = await fetchProfile(session.user.id)
+        if (!isActive) return
+
         const appUser = convertToAppUser(session.user, profile)
         setUser(appUser)
       } else {
@@ -110,9 +139,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })
 
     return () => {
+      isActive = false
+      abortController.abort() // Clean abort on unmount
       subscription.unsubscribe()
     }
-  }, [restoreSession, fetchProfile, convertToAppUser])
+  }, [fetchProfile, convertToAppUser])
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true)
@@ -196,7 +227,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const checkAuth = async () => {
-    await restoreSession()
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.user) {
+        const profile = await fetchProfile(session.user.id)
+        const appUser = convertToAppUser(session.user, profile)
+        setUser(appUser)
+      } else {
+        setUser(null)
+      }
+    } catch (error: any) {
+      if (error.name !== 'AbortError' && !error.message?.includes('aborted')) {
+        console.error("[Auth] Check auth error:", error)
+      }
+      setUser(null)
+    }
   }
 
   const refreshUser = async () => {
