@@ -3,53 +3,75 @@
  * Sitemap automático para SEO
  * 
  * Next.js genera automáticamente el sitemap.xml en:
- * https://repositorio.unis.edu.gt/sitemap.xml
+ * https://unisrepo.netlify.app/sitemap.xml
  * 
  * Incluye todas las investigaciones aprobadas para indexación
+ * y páginas públicas importantes del repositorio UNIS
  */
 
 import { MetadataRoute } from 'next'
 import { supabase } from '@/lib/supabase'
 
+export const revalidate = 3600 // Revalidar cada hora
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://repositorio.unis.edu.gt'
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://unisrepo.netlify.app'
+    const currentDate = new Date()
 
-    // Obtener todas las investigaciones aprobadas
-    const { data: investigations } = await supabase
-        .from('investigations')
-        .select('slug, updated_at, created_at')
-        .eq('status', 'aprobado')
-        .order('updated_at', { ascending: false })
-
-    // Páginas estáticas
+    // Páginas estáticas principales
     const staticPages: MetadataRoute.Sitemap = [
         {
             url: baseUrl,
-            lastModified: new Date(),
+            lastModified: currentDate,
             changeFrequency: 'daily',
-            priority: 1,
+            priority: 1.0,
         },
         {
             url: `${baseUrl}/login`,
-            lastModified: new Date(),
+            lastModified: currentDate,
             changeFrequency: 'monthly',
-            priority: 0.5,
+            priority: 0.3, // Reducida - no es contenido principal
         },
         {
             url: `${baseUrl}/register`,
-            lastModified: new Date(),
+            lastModified: currentDate,
             changeFrequency: 'monthly',
-            priority: 0.5,
+            priority: 0.3, // Reducida - no es contenido principal
         },
     ]
 
-    // Páginas de investigaciones
-    const investigationPages: MetadataRoute.Sitemap = (investigations || []).map((inv) => ({
-        url: `${baseUrl}/research/${inv.slug}`,
-        lastModified: new Date(inv.updated_at || inv.created_at),
-        changeFrequency: 'monthly' as const,
-        priority: 0.8,
-    }))
+    try {
+        // Obtener todas las investigaciones aprobadas con manejo de errores
+        const { data: investigations, error } = await supabase
+            .from('investigations')
+            .select('slug, updated_at, created_at, title')
+            .eq('status', 'aprobado')
+            .not('slug', 'is', null) // Solo investigaciones con slug
+            .order('updated_at', { ascending: false })
+            .limit(1000) // Límite de seguridad
 
-    return [...staticPages, ...investigationPages]
+        if (error) {
+            console.error('[Sitemap] Error fetching investigations:', error)
+            // Retornar solo páginas estáticas si hay error
+            return staticPages
+        }
+
+        // Páginas de investigaciones individuales
+        const investigationPages: MetadataRoute.Sitemap = (investigations || [])
+            .filter(inv => inv.slug) // Doble verificación de slug
+            .map((inv) => ({
+                url: `${baseUrl}/research/${inv.slug}`,
+                lastModified: new Date(inv.updated_at || inv.created_at),
+                changeFrequency: 'weekly' as const, // Las investigaciones se actualizan ocasionalmente
+                priority: 0.8, // Alta prioridad - contenido principal
+            }))
+
+        console.log(`[Sitemap] Generated ${investigationPages.length} investigation pages`)
+
+        return [...staticPages, ...investigationPages]
+    } catch (error) {
+        console.error('[Sitemap] Unexpected error:', error)
+        // Fallback: retornar solo páginas estáticas
+        return staticPages
+    }
 }
