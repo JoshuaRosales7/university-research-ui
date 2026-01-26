@@ -1,7 +1,6 @@
 import type React from "react"
 import type { Metadata } from "next"
 import { Inter } from "next/font/google"
-import { Analytics } from "@vercel/analytics/next"
 import { AuthProviderWrapper } from "@/components/auth-provider-wrapper"
 import "./globals.css"
 
@@ -22,7 +21,6 @@ export default function RootLayout({
     <html lang="es">
       <body className={`${inter.className} font-sans antialiased`}>
         <AuthProviderWrapper>{children}</AuthProviderWrapper>
-        <Analytics />
       </body>
     </html>
   )
