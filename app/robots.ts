@@ -14,7 +14,7 @@
 import { MetadataRoute } from 'next'
 
 export default function robots(): MetadataRoute.Robots {
-    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://repositorio.unis.edu.gt'
+    const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://unisrepo.netlify.app'
 
     return {
         rules: [
