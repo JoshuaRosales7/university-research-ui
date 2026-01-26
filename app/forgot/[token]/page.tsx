@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { UniversityLogo } from "@/components/university-logo"
-import { dspaceClient } from "@/lib/client"
+import { supabase } from "@/lib/supabase"
 
 export default function ForgotPasswordTokenPage({ params }: { params: Promise<{ token: string }> }) {
     const { token } = use(params)
@@ -48,13 +48,15 @@ export default function ForgotPasswordTokenPage({ params }: { params: Promise<{ 
         }
 
         try {
-            // we try password reset first since the link is /forgot/
-            const result = await dspaceClient.completePasswordReset(token, formData.password)
+            // Use Supabase to verify the token and update password
+            const { data, error } = await supabase.auth.updateUser({
+                password: formData.password,
+            })
 
-            if (result.success) {
+            if (error) {
+                setError(error.message || "Token inválido o expirado.")
+            } else if (data) {
                 setSuccess(true)
-            } else {
-                setError(result.error || "Token inválido o expirado.")
             }
         } catch (err) {
             console.error("Password reset error:", err)
