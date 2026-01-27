@@ -119,9 +119,26 @@ export default function ResearchDetailPage({ params }: { params: Promise<{ id: s
 
   const handleShare = async () => {
     const url = window.location.href
+    const title = research?.title || "Investigación en Sembri"
+    const text = `Mira esta investigación interesante: ${title}`
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title,
+          text,
+          url,
+        })
+        return
+      } catch (err) {
+        if ((err as any).name !== 'AbortError') {
+          console.error("Error al compartir:", err)
+        }
+      }
+    }
+
     try {
       await navigator.clipboard.writeText(url)
-      // Could add toast here
       alert("¡Enlace copiado al portapapeles!")
     } catch (err) {
       console.error("Error al copiar:", err)

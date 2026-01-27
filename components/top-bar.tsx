@@ -3,6 +3,7 @@
 import { Search, Bell, Menu } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { CommandMenu } from "@/components/command-menu"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -35,14 +36,7 @@ export function TopBar({ onMenuClick }: TopBarProps) {
 
       {/* Search */}
       <div className="flex-1 max-w-xl">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            type="search"
-            placeholder="Buscar investigaciones, autores, palabras clave..."
-            className="pl-10 bg-secondary border-0"
-          />
-        </div>
+        <CommandMenu />
       </div>
 
       <div className="flex items-center gap-2">

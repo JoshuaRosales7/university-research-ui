@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Filter, LayoutGrid, List, SlidersHorizontal, Loader2, Database, ChevronLeft, ChevronRight, BookOpen, GraduationCap, Calendar, Briefcase, School } from "lucide-react"
+import { Search, Filter, LayoutGrid, List, SlidersHorizontal, Loader2, Database, ChevronLeft, ChevronRight, BookOpen, GraduationCap, Calendar, Briefcase, School, Globe, Server } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -14,14 +14,17 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ResearchCard } from "@/components/research/research-card"
-import { useSearch } from "@/lib/hooks"
+import { ExternalResearchCard } from "@/components/explore/external-research-card"
+import { useSearch, useOpenAlexSearch } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
 
 type ViewMode = "list" | "grid"
 type SortOption = "date" | "relevance" | "title"
+type SearchSource = "local" | "global"
 
 export function ExploreContent() {
   const [searchQuery, setSearchQuery] = useState("")
+  const [source, setSource] = useState<SearchSource>("local")
   const [viewMode, setViewMode] = useState<ViewMode>("list")
   const [sortBy, setSortBy] = useState<SortOption>("date")
   const [page, setPage] = useState(0)
@@ -74,9 +77,10 @@ export function ExploreContent() {
   // Reset page when filters change
   useEffect(() => {
     setPage(0)
-  }, [searchQuery, selectedFaculties, selectedCareers, selectedYears, selectedTypes])
+  }, [searchQuery, selectedFaculties, selectedCareers, selectedYears, selectedTypes, source])
 
-  const { data, isLoading } = useSearch({
+  // Internal Search
+  const { data: localData, isLoading: isLoadingLocal } = useSearch({
     query: searchQuery,
     page: page,
     size: pageSize,
@@ -87,6 +91,16 @@ export function ExploreContent() {
       work_type: selectedTypes
     }
   })
+
+  // External Search
+  const { data: externalData, isLoading: isLoadingExternal } = useOpenAlexSearch(
+    source === "global" ? searchQuery : "",
+    page + 1
+  )
+
+  const isLoading = source === "global" ? isLoadingExternal : isLoadingLocal
+  const items = (source === "global" ? externalData?.results : localData?.items) || []
+  const total = (source === "global" ? externalData?.meta?.count : localData?.total) || 0
 
   // Handlers
   const toggleFilter = (item: string, current: string[], setFn: (val: string[]) => void) => {
@@ -108,7 +122,7 @@ export function ExploreContent() {
     selectedYears.length +
     selectedTypes.length
 
-  const totalPages = data?.total ? Math.ceil(data.total / pageSize) : 0
+  const totalPages = total ? Math.ceil(total / pageSize) : 0
 
   const FilterSection = ({
     title,
@@ -243,6 +257,27 @@ export function ExploreContent() {
             />
           </div>
 
+          <div className="flex bg-muted/40 p-1 rounded-xl h-12 shrink-0">
+            <Button
+              variant={source === "local" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setSource("local")}
+              className="h-full rounded-lg px-4 gap-2"
+            >
+              <Server className="h-4 w-4" />
+              <span className="hidden sm:inline">Institucional</span>
+            </Button>
+            <Button
+              variant={source === "global" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setSource("global")}
+              className="h-full rounded-lg px-4 gap-2"
+            >
+              <Globe className="h-4 w-4" />
+              <span className="hidden sm:inline">Global (OpenAlex)</span>
+            </Button>
+          </div>
+
           <div className="flex items-center gap-2">
             <Sheet>
               <SheetTrigger asChild>
@@ -254,21 +289,25 @@ export function ExploreContent() {
                   )}
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-[300px] sm:w-[350px]">
-                <FilterContent />
-              </SheetContent>
+              {source === "local" && (
+                <SheetContent side="left" className="w-[300px] sm:w-[350px]">
+                  <FilterContent />
+                </SheetContent>
+              )}
             </Sheet>
 
-            <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-              <SelectTrigger className="w-[160px] h-12 rounded-xl bg-muted/40 border-transparent hover:bg-muted/60">
-                <SelectValue placeholder="Ordenar" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="date">Más recientes</SelectItem>
-                <SelectItem value="title">Título A-Z</SelectItem>
-                <SelectItem value="relevance">Relevancia</SelectItem>
-              </SelectContent>
-            </Select>
+            {source === "local" && (
+              <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+                <SelectTrigger className="w-[160px] h-12 rounded-xl bg-muted/40 border-transparent hover:bg-muted/60">
+                  <SelectValue placeholder="Ordenar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="date">Más recientes</SelectItem>
+                  <SelectItem value="title">Título A-Z</SelectItem>
+                  <SelectItem value="relevance">Relevancia</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
 
             <div className="hidden md:flex items-center bg-muted/40 rounded-xl p-1 h-12">
               <Button
@@ -295,11 +334,21 @@ export function ExploreContent() {
       <div className="flex gap-8 items-start">
         {/* Desktop Filters Sidebar */}
         <aside className="hidden lg:block w-72 shrink-0 sticky top-24 max-h-[calc(100vh-8rem)]">
-          <Card className="h-full border-border/50 bg-card/50 backdrop-blur-sm shadow-sm">
-            <CardContent className="p-6 h-full">
-              <FilterContent />
-            </CardContent>
-          </Card>
+          {source === "local" ? (
+            <Card className="h-full border-border/50 bg-card/50 backdrop-blur-sm shadow-sm">
+              <CardContent className="p-6 h-full">
+                <FilterContent />
+              </CardContent>
+            </Card>
+          ) : (
+            <Card className="h-full border-border/50 bg-blue-50/50 dark:bg-blue-900/10 backdrop-blur-sm shadow-sm">
+              <CardContent className="p-6 h-full flex flex-col gap-4 text-center items-center justify-center text-muted-foreground">
+                <Globe className="h-12 w-12 text-blue-500 mb-2 opacity-50" />
+                <p className="font-medium">Modo Global Activo</p>
+                <p className="text-sm">Estás buscando en la base de datos abierta de OpenAlex con más de 200M de trabajos.</p>
+              </CardContent>
+            </Card>
+          )}
         </aside>
 
         {/* Results Area */}
@@ -310,7 +359,7 @@ export function ExploreContent() {
               <div className="flex items-center gap-2">
                 <Database className="h-4 w-4" />
                 <span>
-                  Mostrando <strong className="text-foreground">{data?.items?.length || 0}</strong> de <strong className="text-foreground">{data?.total || 0}</strong> resultados
+                  Mostrando <strong className="text-foreground">{items?.length || 0}</strong> de <strong className="text-foreground">{total || 0}</strong> resultados
                 </span>
               </div>
               {activeFiltersCount > 0 && (
@@ -329,7 +378,7 @@ export function ExploreContent() {
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
               <p className="text-muted-foreground animate-pulse font-medium">Cargando investigaciones...</p>
             </div>
-          ) : !data || data.items.length === 0 ? (
+          ) : !items || items.length === 0 ? (
             <div className="py-20 flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-muted rounded-[2rem] bg-muted/10">
               <div className="bg-muted p-6 rounded-full mb-6">
                 <Search className="h-10 w-10 text-muted-foreground" />
@@ -350,9 +399,14 @@ export function ExploreContent() {
                   ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2"
                   : "grid-cols-1"
               )}>
-                {data.items.map((research) => (
-                  <div key={research.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-backwards">
-                    <ResearchCard research={research} />
+
+                {items.map((item: any) => (
+                  <div key={item.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-backwards">
+                    {source === "local" ? (
+                      <ResearchCard research={item} />
+                    ) : (
+                      <ExternalResearchCard research={item} />
+                    )}
                   </div>
                 ))}
               </div>

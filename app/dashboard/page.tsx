@@ -3,6 +3,7 @@
 import { useAuth } from "@/lib/auth-context"
 import { StatsCards } from "@/components/dashboard/stats-cards"
 import { RecentSubmissions } from "@/components/dashboard/recent-submissions"
+import { AdminAnalytics } from "@/components/dashboard/admin-analytics"
 import { QuickActions } from "@/components/dashboard/quick-actions"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -42,6 +43,13 @@ export default function DashboardPage() {
 
       {/* Stats Overview */}
       <StatsCards />
+
+      {(isAdmin || isDocente) && (
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold tracking-tight">Análisis de la Plataforma</h2>
+          <AdminAnalytics />
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="grid gap-6 md:gap-8 lg:grid-cols-5">

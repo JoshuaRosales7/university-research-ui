@@ -3,6 +3,7 @@
 
 import useSWR from "swr"
 import { supabase } from "./supabase"
+import { searchOpenAlex } from "./external-apis"
 
 // ============ Communities ============
 
@@ -257,4 +258,16 @@ export async function deleteComment(commentId: string) {
     .eq('id', commentId)
 
   if (error) throw error
+}
+
+// ============ External Search ============
+
+export function useOpenAlexSearch(query: string, page = 1) {
+  return useSWR(
+    ["openalex", query || "default", page],
+    () => searchOpenAlex(query, page),
+    {
+      revalidateOnFocus: false
+    }
+  )
 }
