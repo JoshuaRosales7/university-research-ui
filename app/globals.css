@@ -1,5 +1,10 @@
-@import "tailwindcss";
 @import "tw-animate-css";
+@import "tailwindcss";
+
+html {
+  scroll-behavior: smooth;
+}
+
 
 @custom-variant dark (&:is(.dark *));
 
@@ -11,6 +16,7 @@
   /* Neutrals - Slate based for maximum cleanliness */
   --background: oklch(0.99 0.005 240);
   --foreground: oklch(0.15 0.02 240);
+
 
   /* Surfaces */
   --card: oklch(1 0 0);

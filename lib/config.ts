@@ -1,4 +1,5 @@
 export const DSPACE_CONFIG = {
+  baseUrl: "/api/dspace",
   // Authentication endpoints
   endpoints: {
     auth: {

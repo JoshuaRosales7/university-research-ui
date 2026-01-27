@@ -272,7 +272,7 @@ class DSpaceClient {
         }
 
         // 4. Esperar y verificar autenticación
-        await new Promise(resolve => setTimeout(resolve, 800))
+        await new Promise(resolve => setTimeout(resolve, 300))
 
         const authStatus = await this.getAuthStatus()
 
@@ -285,7 +285,7 @@ class DSpaceClient {
           console.warn("[DSpace] ❌ Login succeeded but session not established")
 
           // Intentar una vez más
-          await new Promise(resolve => setTimeout(resolve, 1200))
+          await new Promise(resolve => setTimeout(resolve, 500))
           const retryStatus = await this.getAuthStatus()
 
           if (retryStatus.authenticated && retryStatus._embedded?.eperson) {

@@ -64,14 +64,14 @@ export function SidebarNav({ collapsed, onToggle }: SidebarNavProps) {
   return (
     <aside
       className={cn(
-        "h-full bg-sidebar text-sidebar-foreground transition-all duration-300 ease-in-out flex flex-col shadow-xl",
+        "h-full bg-sidebar text-sidebar-foreground transition-all duration-200 ease-in-out flex flex-col shadow-xl",
         // Desktop width is controlled here, Mobile width fills the container (provided by layout)
         collapsed ? "md:w-20" : "md:w-64",
         "w-full"
       )}
     >
       {/* Header */}
-      <div className="flex h-16 md:h-20 items-center justify-between border-b border-white/5 px-4 md:px-6 gap-2 shrink-0">
+      < div className="flex h-16 md:h-20 items-center justify-between border-b border-white/5 px-4 md:px-6 gap-2 shrink-0" >
         <div className="flex-1 flex items-center justify-start overflow-hidden">
           {collapsed ? (
             <div className="hidden md:block">
@@ -93,45 +93,47 @@ export function SidebarNav({ collapsed, onToggle }: SidebarNavProps) {
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
-      </div>
+      </div >
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 p-3 md:p-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
-        {allNavItems.map((item) => {
-          const isActive = pathname === item.href
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 rounded-xl md:rounded-2xl px-3 py-3 md:py-3 text-sm md:text-[13px] font-bold transition-all group relative overflow-hidden whitespace-nowrap",
-                isActive
-                  ? "bg-primary text-white shadow-lg shadow-primary/20"
-                  : "text-sidebar-foreground/60 hover:bg-white/5 hover:text-white",
-              )}
-            >
-              <item.icon className={cn(
-                "h-5 w-5 md:h-5 md:w-5 shrink-0 transition-all duration-300",
-                isActive ? "text-white scale-110" : "text-primary group-hover:scale-110"
-              )} />
-              {(
-                <span className={cn(
-                  "tracking-tight inline text-ellipsis overflow-hidden flex-1",
-                  collapsed ? "md:hidden" : ""
-                )}>
-                  {item.label}
-                </span>
-              )}
-              {isActive && (
-                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-white rounded-r-full" />
-              )}
-            </Link>
-          )
-        })}
-      </nav>
+      < nav className="flex-1 space-y-1 p-3 md:p-4 overflow-y-auto overflow-x-hidden custom-scrollbar" >
+        {
+          allNavItems.map((item) => {
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 rounded-xl md:rounded-2xl px-3 py-3 md:py-3 text-sm md:text-[13px] font-bold transition-all group relative overflow-hidden whitespace-nowrap",
+                  isActive
+                    ? "bg-primary text-white shadow-lg shadow-primary/20"
+                    : "text-sidebar-foreground/60 hover:bg-white/5 hover:text-white",
+                )}
+              >
+                <item.icon className={cn(
+                  "h-5 w-5 md:h-5 md:w-5 shrink-0 transition-all duration-300",
+                  isActive ? "text-white scale-110" : "text-primary group-hover:scale-110"
+                )} />
+                {(
+                  <span className={cn(
+                    "tracking-tight inline text-ellipsis overflow-hidden flex-1",
+                    collapsed ? "md:hidden" : ""
+                  )}>
+                    {item.label}
+                  </span>
+                )}
+                {isActive && (
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 bg-white rounded-r-full" />
+                )}
+              </Link>
+            )
+          })
+        }
+      </nav >
 
       {/* User Section */}
-      <div className="p-3 md:p-4 mt-auto border-t border-white/5 gap-2 shrink-0">
+      < div className="p-3 md:p-4 mt-auto border-t border-white/5 gap-2 shrink-0" >
         <div className={cn(
           "flex items-center gap-3 rounded-xl md:rounded-2xl p-2 md:p-2 transition-all bg-white/5 ring-1 ring-white/5",
           collapsed ? "md:justify-center" : "md:px-3"
@@ -165,7 +167,7 @@ export function SidebarNav({ collapsed, onToggle }: SidebarNavProps) {
           <LogOut className="h-4 w-4 shrink-0" />
           <span className={cn(collapsed ? "md:hidden" : "inline")}>Salir</span>
         </Button>
-      </div>
-    </aside>
+      </div >
+    </aside >
   )
 }

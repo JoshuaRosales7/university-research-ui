@@ -15,11 +15,13 @@ export function UniversityLogo({ variant = "default", className = "" }: Universi
           alt="UNIS"
           width={28}
           height={28}
-          className="object-contain"
+          className="object-contain w-7 h-7"
         />
       </div>
     )
   }
+
+  const sizeClass = variant === "light" ? "w-[42px] h-[42px]" : "w-9 h-9"
 
   return (
     <div className={`flex items-center gap-3 ${className}`}>
@@ -28,7 +30,7 @@ export function UniversityLogo({ variant = "default", className = "" }: Universi
         alt="UNIS"
         width={variant === "light" ? 42 : 36}
         height={variant === "light" ? 42 : 36}
-        className="object-contain"
+        className={cn("object-contain", sizeClass)}
       />
       <div className="flex flex-col">
         <span className={cn(

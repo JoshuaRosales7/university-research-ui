@@ -185,7 +185,7 @@ export default function LoginPage() {
               {isButtonLoading ? (
                 <div className="flex items-center gap-3">
                   <Loader2 className="h-5 w-5 animate-spin" />
-                  Conectando con Supabase...
+                  Conectando...
                 </div>
               ) : "Entrar al Repositorio"}
             </Button>

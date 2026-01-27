@@ -20,7 +20,7 @@ export default function DashboardPage() {
   const firstName = user.firstName || "Usuario"
 
   return (
-    <div className="space-y-8 md:space-y-12 animate-in fade-in duration-700">
+    <div className="space-y-8 md:space-y-12 animate-in fade-in duration-500">
       {/* Welcome Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 md:gap-6 pb-2">
         <div className="space-y-2 md:space-y-3">
