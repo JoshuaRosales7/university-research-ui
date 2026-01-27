@@ -33,22 +33,52 @@ function StatCard({ title, value, icon: Icon, colorClass }: StatCardProps) {
 
 export function StatsCards() {
   const { user } = useAuth()
-  const isAdmin = user?.role === "admin"
-  const { data: myItems } = useMyWorkspaceItems(isAdmin ? undefined : user?.id)
-  const { data: globalItems } = useGlobalInvestigations(isAdmin ? user?.role : undefined)
 
-  const items = isAdmin ? (globalItems || []) : (myItems || [])
-  const total = items.length
-  const pending = items.filter(i => i.status === 'en_revision' || i.status === 'pending').length
-  const approved = items.filter(i => i.status === 'aprobado').length
-  const rejected = items.filter(i => i.status === 'rechazado').length
+  // Conditionally fetch data based on role
+  // Students only see their own workspace items stats
+  // Admins/Docentes see global stats (or should they?)
+  // Actually, usually dashboard stats are personal for students, and global for admins.
+
+  const isAdminOrDocente = user?.role === "admin" || user?.role === "docente"
+
+  const { data: myItems } = useMyWorkspaceItems(user?.id)
+  const { data: globalItems } = useGlobalInvestigations(isAdminOrDocente ? user?.role : undefined)
+
+  // Decide which dataset to show
+  const items = isAdminOrDocente ? (globalItems || []) : (myItems || [])
+
+  // Safely calculate counts
+  const total = items?.length || 0
+  const pending = items?.filter(i => i.status === 'en_revision' || i.status === 'pending').length || 0
+  const approved = items?.filter(i => i.status === 'aprobado').length || 0
+  const rejected = items?.filter(i => i.status === 'rechazado').length || 0
 
   return (
-    <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <StatCard title="Total" value={total} icon={FileText} colorClass="bg-primary/10 text-primary" />
-      <StatCard title="Pendientes" value={pending} icon={Clock} colorClass="bg-amber-500/10 text-amber-600" />
-      <StatCard title="Aprobados" value={approved} icon={CheckCircle} colorClass="bg-emerald-500/10 text-emerald-600" />
-      <StatCard title="Rechazados" value={rejected} icon={XCircle} colorClass="bg-destructive/10 text-destructive" />
+    <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+      <StatCard
+        title={isAdminOrDocente ? "Total Global" : "Mis Envíos"}
+        value={total}
+        icon={FileText}
+        colorClass="bg-primary/10 text-primary"
+      />
+      <StatCard
+        title="Pendientes"
+        value={pending}
+        icon={Clock}
+        colorClass="bg-amber-500/10 text-amber-600"
+      />
+      <StatCard
+        title="Aprobados"
+        value={approved}
+        icon={CheckCircle}
+        colorClass="bg-emerald-500/10 text-emerald-600"
+      />
+      <StatCard
+        title="Rechazados"
+        value={rejected}
+        icon={XCircle}
+        colorClass="bg-destructive/10 text-destructive"
+      />
     </div>
   )
 }

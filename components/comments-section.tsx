@@ -17,10 +17,10 @@ interface CommentsSectionProps {
   onCommentAdded?: () => void
 }
 
-function CommentItem({ comment, onDelete, onEdit, isOwner }: any) {
+function CommentItem({ comment, onDelete, isOwner }: { comment: any, onDelete: (id: string) => void, isOwner: boolean }) {
   const { data: profile } = useUserProfile(comment.user_id)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editContent, setEditContent] = useState("")
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(comment.content)
   const [isEditSubmitting, setIsEditSubmitting] = useState(false)
 
   const displayName = profile?.full_name || "Usuario Anónimo"
@@ -31,14 +31,13 @@ function CommentItem({ comment, onDelete, onEdit, isOwner }: any) {
     .toUpperCase()
     .slice(0, 2)
 
-  const handleUpdateComment = async (commentId: string) => {
+  const handleUpdate = async () => {
     if (!editContent.trim()) return
 
     setIsEditSubmitting(true)
     try {
-      await updateComment(commentId, editContent.trim())
-      setEditingId(null)
-      setEditContent("")
+      await updateComment(comment.id, editContent.trim())
+      setIsEditing(false)
     } catch (error) {
       console.error("Error updating comment:", error)
     } finally {
@@ -70,60 +69,59 @@ function CommentItem({ comment, onDelete, onEdit, isOwner }: any) {
               })}
             </p>
 
-            {editingId === comment.id ? (
+            {isEditing ? (
               <div className="space-y-2">
                 <Textarea
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
-                  className="min-h-20 resize-none rounded-lg border-border/40"
+                  className="min-h-[80px] resize-none rounded-lg border-border/40"
                 />
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    onClick={() => handleUpdateComment(comment.id)}
+                    onClick={handleUpdate}
                     disabled={isEditSubmitting || !editContent.trim()}
-                    variant="default"
+                    className="h-8 px-3"
                   >
-                    {isEditSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                    {isEditSubmitting ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Check className="h-3 w-3 mr-1" />}
+                    Guardar
                   </Button>
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="ghost"
                     onClick={() => {
-                      setEditingId(null)
-                      setEditContent("")
+                      setIsEditing(false)
+                      setEditContent(comment.content)
                     }}
+                    className="h-8 px-3"
                   >
-                    <X className="h-3 w-3" />
+                    <X className="h-3 w-3 mr-1" /> Cancelar
                   </Button>
                 </div>
               </div>
             ) : (
-              <p className="text-sm leading-relaxed text-foreground">{comment.content}</p>
+              <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap break-words">{comment.content}</p>
             )}
           </div>
         </div>
 
-        {isOwner && editingId !== comment.id && (
+        {isOwner && !isEditing && (
           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8"
-              onClick={() => {
-                setEditingId(comment.id)
-                setEditContent(comment.content)
-              }}
+              className="h-8 w-8 hover:bg-background/80"
+              onClick={() => setIsEditing(true)}
             >
-              <Edit2 className="h-3 w-3" />
+              <Edit2 className="h-3.5 w-3.5" />
             </Button>
             <Button
               size="icon"
               variant="ghost"
-              className="h-8 w-8 text-destructive hover:text-destructive"
+              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={() => onDelete(comment.id)}
             >
-              <Trash2 className="h-3 w-3" />
+              <Trash2 className="h-3.5 w-3.5" />
             </Button>
           </div>
         )}

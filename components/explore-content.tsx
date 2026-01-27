@@ -10,8 +10,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
-import { cn } from "@/lib/utils"
-import { useCommunities, useSearch, getMetadataValue, getMetadataValues } from "@/lib/hooks"
+import { cn, getMetadataValue, getMetadataValues } from "@/lib/utils"
+import { useCommunities, useSearch } from "@/lib/hooks"
 import type { DSpaceItem } from "@/lib/types"
 import Link from "next/link"
 
@@ -26,18 +26,20 @@ export function ExploreContent() {
   const [selectedCommunities, setSelectedCommunities] = useState<string[]>([])
   const [page, setPage] = useState(0)
 
-  const { data: communitiesData, isLoading: loadingCommunities } = useCommunities(0, 50)
+  // useCommunities hook doesn't take pagination args in current implementation (hooks.ts:9)
+  const { data: communitiesData, isLoading: loadingCommunities } = useCommunities()
+
   const { data: searchData, isLoading: loadingSearch } = useSearch(
     debouncedQuery || selectedCommunities.length > 0
       ? {
-          query: debouncedQuery || "*",
-          dsoType: "ITEM",
-          scope: selectedCommunities[0], // DSpace only supports one scope at a time
-          page,
-          size: 20,
-          sort: sortBy === "date" ? "dc.date.issued,desc" : "dc.title,asc",
-        }
-      : { dsoType: "ITEM", page, size: 20 },
+        query: debouncedQuery || "*",
+        // Removed dsoType as useSearch hook implementation doesn't use it directly yet
+        // scope: selectedCommunities[0] // TODO: Hook needs update to support scope
+        page,
+        size: 20,
+        // sort not implemented in useSearch hook
+      }
+      : { page, size: 20 },
   )
 
   // Debounce search query
@@ -50,8 +52,9 @@ export function ExploreContent() {
   }, [searchQuery])
 
   const communities = communitiesData?.communities || []
-  const items = searchData?.results?.filter((r): r is DSpaceItem => "inArchive" in r) || []
-  const totalResults = searchData?.totalElements || 0
+  // Hook returns { items: [], total: 0 }
+  const items = searchData?.items || []
+  const totalResults = searchData?.total || 0
 
   const toggleCommunity = (communityId: string) => {
     setSelectedCommunities((prev) =>
@@ -109,22 +112,22 @@ export function ExploreContent() {
         <p className="text-muted-foreground">Busca y consulta las investigaciones publicadas en DSpace</p>
       </div>
 
-      <div className="flex flex-col gap-4 md:flex-row md:items-center">
-        <div className="relative flex-1">
+      <div className="flex flex-col gap-4">
+        <div className="relative w-full">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
             placeholder="Buscar por título, autor, palabra clave..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
+            className="pl-10 h-11 bg-background"
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="outline" className="lg:hidden gap-2 bg-transparent">
+              <Button variant="outline" className="lg:hidden gap-2 bg-transparent shrink-0">
                 <SlidersHorizontal className="h-4 w-4" />
                 Filtros
                 {activeFiltersCount > 0 && (
@@ -134,7 +137,7 @@ export function ExploreContent() {
                 )}
               </Button>
             </SheetTrigger>
-            <SheetContent side="left">
+            <SheetContent side="left" className="w-[300px] sm:w-[400px]">
               <SheetHeader>
                 <SheetTitle>Filtros</SheetTitle>
               </SheetHeader>
@@ -145,7 +148,7 @@ export function ExploreContent() {
           </Sheet>
 
           <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className="w-[140px] md:w-[180px] shrink-0">
               <SelectValue placeholder="Ordenar por" />
             </SelectTrigger>
             <SelectContent>
@@ -154,7 +157,9 @@ export function ExploreContent() {
             </SelectContent>
           </Select>
 
-          <div className="hidden md:flex items-center border rounded-lg p-1">
+          <div className="flex-1" />
+
+          <div className="flex items-center border rounded-lg p-1 bg-background shrink-0">
             <Button
               variant={viewMode === "list" ? "secondary" : "ghost"}
               size="icon"
@@ -266,13 +271,14 @@ export function ExploreContent() {
   )
 }
 
-function DSpaceItemCard({ item }: { item: DSpaceItem }) {
-  const title = getMetadataValue(item, "dc.title")
-  const authors = getMetadataValues(item, "dc.contributor.author")
-  const abstract = getMetadataValue(item, "dc.description.abstract")
-  const dateIssued = getMetadataValue(item, "dc.date.issued")
-  const keywords = getMetadataValues(item, "dc.subject")
-  const itemType = getMetadataValue(item, "dc.type")
+function DSpaceItemCard({ item }: { item: any }) {
+  // Map Supabase fields to display
+  const title = item.title
+  const authors = Array.isArray(item.authors) ? item.authors : [item.authors]
+  const abstract = item.abstract
+  const dateIssued = item.year || new Date(item.created_at).getFullYear()
+  const keywords = Array.isArray(item.keywords) ? item.keywords : []
+  const itemType = item.work_type || "Investigación"
 
   return (
     <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
@@ -281,8 +287,8 @@ function DSpaceItemCard({ item }: { item: DSpaceItem }) {
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
               <Link
-                href={`/dashboard/research/${item.uuid}`}
-                className="font-semibold hover:text-primary transition-colors line-clamp-2"
+                href={`/dashboard/research/${item.id}`} // Use ID, not UUID
+                className="font-semibold hover:text-primary transition-colors line-clamp-2 text-lg"
               >
                 {title}
               </Link>
@@ -295,22 +301,24 @@ function DSpaceItemCard({ item }: { item: DSpaceItem }) {
             )}
           </div>
 
-          {abstract && <p className="text-sm text-muted-foreground line-clamp-2">{abstract}</p>}
+          {abstract && <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">{abstract}</p>}
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
             <div className="flex flex-wrap gap-1">
-              {keywords.slice(0, 3).map((keyword) => (
-                <Badge key={keyword} variant="secondary" className="text-xs">
+              {keywords.slice(0, 3).map((keyword: string) => (
+                <Badge key={keyword} variant="secondary" className="text-xs bg-muted text-muted-foreground hover:text-foreground">
                   {keyword}
                 </Badge>
               ))}
               {keywords.length > 3 && (
-                <Badge variant="secondary" className="text-xs">
+                <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">
                   +{keywords.length - 3}
                 </Badge>
               )}
             </div>
-            {dateIssued && <span className="text-xs text-muted-foreground">{dateIssued}</span>}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground shrink-0">
+              <span>{dateIssued}</span>
+            </div>
           </div>
         </div>
       </CardContent>

@@ -21,7 +21,7 @@ interface Notification {
     type: string
     title: string
     message: string
-    link: string | null
+    reference_id: string | null
     read: boolean
     created_at: string
 }
@@ -230,9 +230,9 @@ export function NotificationBell() {
                                         </div>
                                     </div>
 
-                                    {notification.link && (
+                                    {notification.reference_id && (
                                         <Link
-                                            href={notification.link}
+                                            href={notification.type === 'like' ? `/dashboard/research/${notification.reference_id}` : `/dashboard/user/${notification.reference_id}`}
                                             className="block mt-2 ml-4"
                                             onClick={() => {
                                                 markAsRead(notification.id)

@@ -22,21 +22,13 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         headers: {
             'x-client-info': 'supabase-js-web',
         },
-        fetch: (url, options = {}) => {
-            // Create a new AbortController for each request to avoid signal reuse issues
-            const controller = new AbortController()
-            const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
-
-            return fetch(url, {
-                ...options,
-                signal: controller.signal,
-                keepalive: false, // Disable keepalive to prevent connection issues
-            }).finally(() => clearTimeout(timeoutId))
-        },
+        // Custom fetch implementation removed as it can cause issues in some environments
+        // Default fetch behavior handles AbortController internally in newer versions
     },
     db: {
         schema: 'public',
     },
+    // Realtime configuration updated
     realtime: {
         params: {
             eventsPerSecond: 10,

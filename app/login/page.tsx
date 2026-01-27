@@ -176,9 +176,9 @@ export default function LoginPage() {
             </div>
 
             <div className="flex items-center justify-end">
-              <button type="button" className="text-xs font-bold text-primary hover:text-primary/70 transition-colors uppercase tracking-widest">
+              <Link href="/forgot-password" className="text-xs font-bold text-primary hover:text-primary/70 transition-colors uppercase tracking-widest">
                 Recuperar Contraseña
-              </button>
+              </Link>
             </div>
 
             <Button type="submit" className="w-full h-14 text-base font-bold shadow-xl shadow-primary/20 rounded-2xl transition-all active:scale-[0.98]" disabled={isButtonLoading}>

@@ -105,6 +105,12 @@ export function useSearch(
     query?: string
     page?: number
     size?: number
+    filters?: {
+      faculty?: string[]
+      career?: string[]
+      year?: string[]
+      work_type?: string[]
+    }
   } | null,
 ) {
   return useSWR(params ? ["search", JSON.stringify(params)] : null, async () => {
@@ -114,8 +120,22 @@ export function useSearch(
       .select('*', { count: 'exact' })
       .eq('status', 'aprobado')
 
-    if (params.query) {
+    if (params.query && params.query.trim() !== '') {
       query = query.or(`title.ilike.%${params.query}%,abstract.ilike.%${params.query}%`)
+    }
+
+    // Apply filters
+    if (params.filters?.faculty?.length) {
+      query = query.in('faculty', params.filters.faculty)
+    }
+    if (params.filters?.career?.length) {
+      query = query.in('career', params.filters.career)
+    }
+    if (params.filters?.year?.length) {
+      query = query.in('year', params.filters.year)
+    }
+    if (params.filters?.work_type?.length) {
+      query = query.in('work_type', params.filters.work_type)
     }
 
     const page = params.page || 0

@@ -13,6 +13,8 @@ import type {
   DSpaceGroup,
 } from "./types"
 
+const DEBUG = process.env.NODE_ENV === 'development';
+
 class DSpaceClient {
   private baseUrl: string
   private csrfToken: string | null = null
@@ -21,7 +23,7 @@ class DSpaceClient {
 
   constructor() {
     this.baseUrl = DSPACE_CONFIG.baseUrl
-    console.log("[DSpace] Client initialized with baseUrl:", this.baseUrl)
+    if (DEBUG) console.log("[DSpace] Client initialized with baseUrl:", this.baseUrl)
   }
 
   // ============ Core Fetch Methods ============
@@ -67,7 +69,6 @@ class DSpaceClient {
     const cookieCsrf = this.getCsrfFromCookies()
     if (cookieCsrf && cookieCsrf !== this.csrfToken) {
       this.csrfToken = cookieCsrf
-      console.log("[DSpace] CSRF token from cookies:", cookieCsrf.substring(0, 20) + "...")
     }
 
     const headers = new Headers(this.getHeaders())
@@ -87,7 +88,7 @@ class DSpaceClient {
       headers,
     }
 
-    console.log(`[DSpace] ${options.method || 'GET'} ${endpoint}`)
+    if (DEBUG) console.log(`[DSpace] ${options.method || 'GET'} ${endpoint}`)
 
     try {
       const response = await fetch(url, fetchOptions)
@@ -98,7 +99,6 @@ class DSpaceClient {
 
       if (newCsrf && newCsrf !== this.csrfToken) {
         this.csrfToken = newCsrf
-        console.log("[DSpace] CSRF Token updated from headers:", newCsrf.substring(0, 20) + "...")
       }
 
       return response
@@ -158,11 +158,9 @@ class DSpaceClient {
 
   async getAuthStatus(): Promise<DSpaceAuthStatus> {
     try {
-      console.log("[DSpace] Checking auth status...")
       const response = await this.fetchRaw(DSPACE_CONFIG.endpoints.auth.status)
 
       if (response.status === 401 || response.status === 403) {
-        console.log("[DSpace] Not authenticated (401/403)")
         return {
           okay: false,
           authenticated: false,
@@ -172,7 +170,6 @@ class DSpaceClient {
       }
 
       if (!response.ok) {
-        console.warn(`[DSpace] Auth status check failed: ${response.status}`)
         return {
           okay: false,
           authenticated: false,
@@ -182,11 +179,6 @@ class DSpaceClient {
       }
 
       const data = await response.json()
-      console.log("[DSpace] Auth status:", {
-        authenticated: data.authenticated,
-        email: data._embedded?.eperson?.email,
-        okay: data.okay
-      })
 
       return {
         ...data,
@@ -209,7 +201,6 @@ class DSpaceClient {
     const cookieCsrf = this.getCsrfFromCookies()
     if (cookieCsrf) {
       this.csrfToken = cookieCsrf
-      console.log("[DSpace] CSRF token from browser cookies")
       return this.csrfToken
     }
 
@@ -219,16 +210,11 @@ class DSpaceClient {
     }
 
     try {
-      console.log("[DSpace] Requesting CSRF token from endpoint...")
-
       const response = await this.fetchRaw(DSPACE_CONFIG.endpoints.security.csrf)
 
       if (!response.ok) {
-        console.warn(`[DSpace] CSRF endpoint returned ${response.status}`)
-
         // Para respuestas 204 (No Content), es normal
         if (response.status === 204) {
-          console.log("[DSpace] CSRF endpoint returned 204 (No Content)")
           // Verificar si tenemos token en headers
           const headerCsrf = response.headers.get("DSPACE-XSRF-TOKEN")
           if (headerCsrf) {
@@ -246,11 +232,9 @@ class DSpaceClient {
 
       if (token) {
         this.csrfToken = token
-        console.log("[DSpace] CSRF Token acquired from headers")
         return token
       }
 
-      console.warn("[DSpace] No CSRF token found in response")
       return null
     } catch (error) {
       console.warn("[DSpace] Failed to get CSRF token:", error)
@@ -263,13 +247,10 @@ class DSpaceClient {
     password: string,
   ): Promise<{ success: boolean; user?: DSpaceEPerson; error?: string }> {
     try {
-      console.log("[DSpace] ===== LOGIN START =====")
-      console.log(`[DSpace] Attempting login for: ${email}`)
+      if (DEBUG) console.log(`[DSpace] Attempting login for: ${email}`)
 
       // 1. Obtener CSRF token ANTES del login
       await this.ensureCsrfToken()
-
-      console.log("[DSpace] CSRF Token before login:", this.csrfToken ? "Available" : "Not available")
 
       // 2. Intentar login con el token CSRF que tenemos
       const loginResponse = await this.fetchRaw(DSPACE_CONFIG.endpoints.auth.login, {
@@ -283,56 +264,43 @@ class DSpaceClient {
         })
       })
 
-      console.log(`[DSpace] Login response: ${loginResponse.status}`)
-
       if (loginResponse.ok) {
-        console.log("[DSpace] ✅ Login POST successful")
-
         // 3. Después del login exitoso, actualizar CSRF token
         const newCsrf = loginResponse.headers.get("DSPACE-XSRF-TOKEN")
         if (newCsrf) {
           this.csrfToken = newCsrf
-          console.log("[DSpace] Updated CSRF token after login")
         }
 
         // 4. Esperar y verificar autenticación
         await new Promise(resolve => setTimeout(resolve, 800))
 
-        console.log("[DSpace] Verifying authentication...")
         const authStatus = await this.getAuthStatus()
 
         if (authStatus.authenticated && authStatus._embedded?.eperson) {
-          console.log(`[DSpace] ✅ Full login successful for ${authStatus._embedded.eperson.email}`)
-          console.log("[DSpace] ===== LOGIN END =====")
           return {
             success: true,
             user: authStatus._embedded.eperson,
           }
         } else {
           console.warn("[DSpace] ❌ Login succeeded but session not established")
-          console.log("[DSpace] Auth status:", authStatus)
 
           // Intentar una vez más
           await new Promise(resolve => setTimeout(resolve, 1200))
           const retryStatus = await this.getAuthStatus()
 
           if (retryStatus.authenticated && retryStatus._embedded?.eperson) {
-            console.log("[DSpace] ✅ Session established on retry")
             return {
               success: true,
               user: retryStatus._embedded.eperson,
             }
           }
 
-          console.log("[DSpace] ===== LOGIN END =====")
           return {
             success: false,
             error: "La sesión no se estableció correctamente. Por favor, recarga la página."
           }
         }
       } else {
-        console.log(`[DSpace] ❌ Login failed: ${loginResponse.status}`)
-
         let errorMessage = "Credenciales inválidas"
 
         try {
@@ -361,8 +329,6 @@ class DSpaceClient {
           // Could not read response
         }
 
-        console.warn(`[DSpace] Login error: ${errorMessage}`)
-        console.log("[DSpace] ===== LOGIN END =====")
         return {
           success: false,
           error: errorMessage
@@ -370,7 +336,6 @@ class DSpaceClient {
       }
     } catch (error) {
       console.error("[DSpace] Login exception:", error)
-      console.log("[DSpace] ===== LOGIN END =====")
       return {
         success: false,
         error: error instanceof Error ? error.message : "Error de conexión con el servidor."
@@ -380,11 +345,9 @@ class DSpaceClient {
 
   async logout(): Promise<void> {
     try {
-      console.log("[DSpace] Logging out...")
       await this.fetchRaw(DSPACE_CONFIG.endpoints.auth.logout, {
         method: "POST"
       })
-      console.log("[DSpace] ✅ Logout successful")
     } catch (error) {
       console.error("[DSpace] Logout error:", error)
     } finally {
@@ -396,15 +359,11 @@ class DSpaceClient {
   // ... resto de los métodos permanecen igual ...
 
   async debugCookies(): Promise<void> {
+    if (!DEBUG) return;
     console.log("[DSpace] === COOKIE DEBUG ===")
 
     if (typeof document !== 'undefined') {
       console.log("[DSpace] Document cookies:", document.cookie)
-
-      const cookies = document.cookie.split(';')
-      cookies.forEach(cookie => {
-        console.log(`[DSpace] Cookie: ${cookie.trim()}`)
-      })
     } else {
       console.log("[DSpace] No document object (server-side)")
     }

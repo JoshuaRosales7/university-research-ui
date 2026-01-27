@@ -1,7 +1,4 @@
 export const DSPACE_CONFIG = {
-  // Base URL for DSpace REST API - Proxy via Next.js Route Handler
-  baseUrl: process.env.NEXT_PUBLIC_DSPACE_API_URL || "/api/dspace",
-
   // Authentication endpoints
   endpoints: {
     auth: {

@@ -1,16 +1,18 @@
-// components/explore/explore-content.tsx
 "use client"
 
-import { useState, useMemo } from "react"
-import { Search, Filter, LayoutGrid, List, SlidersHorizontal, Loader2, Database } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Search, Filter, LayoutGrid, List, SlidersHorizontal, Loader2, Database, ChevronLeft, ChevronRight, BookOpen, GraduationCap, Calendar, Briefcase, School } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Separator } from "@/components/ui/separator"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import { ResearchCard } from "@/components/research/research-card"
 import { useSearch } from "@/lib/hooks"
 import { cn } from "@/lib/utils"
@@ -22,220 +24,371 @@ export function ExploreContent() {
   const [searchQuery, setSearchQuery] = useState("")
   const [viewMode, setViewMode] = useState<ViewMode>("list")
   const [sortBy, setSortBy] = useState<SortOption>("date")
-  const [selectedFaculties, setSelectedFaculties] = useState<string[]>([])
+  const [page, setPage] = useState(0)
+  const pageSize = 10
 
+  // Filter States
+  const [selectedFaculties, setSelectedFaculties] = useState<string[]>([])
+  const [selectedCareers, setSelectedCareers] = useState<string[]>([])
+  const [selectedYears, setSelectedYears] = useState<string[]>([])
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([])
+
+  // Data Options (In a real app, these might come from an API)
   const faculties = [
-    "Arquitectura y Diseño",
-    "Ciencias Económicas y Empresariales",
-    "Comunicación",
-    "Derecho",
-    "Educación",
-    "Ingeniería",
-    "Humanidades",
+    "Facultad de Ingeniería",
+    "Facultad de Ciencias",
+    "Facultad de Arquitectura y Diseño",
+    "Facultad de Ciencias Económicas y Empresariales",
+    "Facultad de Derecho",
+    "Facultad de Educación",
+    "Facultad de Humanidades",
+    "Facultad de Comunicación",
   ]
+
+  const careers = [
+    "Ingeniería de Sistemas",
+    "Ingeniería Industrial",
+    "Ingeniería Electrónica y Redes de Información",
+    "Biología Marina",
+    "Química Ambiental",
+    "Arquitectura",
+    "Diseño Gráfico",
+    "Administración de Empresas",
+    "Derecho",
+    "Psicología Clínica",
+    "Periodismo",
+  ]
+
+  // Generate last 10 years
+  const currentYear = new Date().getFullYear() + 1 // Including next year for consistency with mock data
+  const years = Array.from({ length: 11 }, (_, i) => (currentYear - i).toString())
+
+  const workTypes = [
+    "Tesis",
+    "Artículo Científico",
+    "Proyecto de Grado",
+    "Ensayo",
+    "Monografía"
+  ]
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(0)
+  }, [searchQuery, selectedFaculties, selectedCareers, selectedYears, selectedTypes])
 
   const { data, isLoading } = useSearch({
     query: searchQuery,
-    page: 0,
-    size: 50
-  })
-
-  const results = (data?.items || []).filter((r: any) => {
-    if (selectedFaculties.length > 0) {
-      return selectedFaculties.includes(r.faculty || "Arquitectura y Diseño") // Defaulting for mock comparison if faculty missing in DB
+    page: page,
+    size: pageSize,
+    filters: {
+      faculty: selectedFaculties,
+      career: selectedCareers,
+      year: selectedYears,
+      work_type: selectedTypes
     }
-    return true
   })
 
-  const toggleFaculty = (faculty: string) => {
-    setSelectedFaculties((prev) => (prev.includes(faculty) ? prev.filter((f) => f !== faculty) : [...prev, faculty]))
+  // Handlers
+  const toggleFilter = (item: string, current: string[], setFn: (val: string[]) => void) => {
+    setFn(current.includes(item) ? current.filter((i) => i !== item) : [...current, item])
   }
 
   const clearFilters = () => {
     setSelectedFaculties([])
+    setSelectedCareers([])
+    setSelectedYears([])
+    setSelectedTypes([])
     setSearchQuery("")
+    setPage(0)
   }
 
-  const activeFiltersCount = selectedFaculties.length
+  const activeFiltersCount =
+    selectedFaculties.length +
+    selectedCareers.length +
+    selectedYears.length +
+    selectedTypes.length
 
-  const FilterContent = () => (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <h4 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-primary"></div>
-          Filtrar por Facultad
-        </h4>
-        <div className="space-y-3">
-          {faculties.map((faculty) => (
-            <div key={faculty} className="flex items-center space-x-3 group cursor-pointer hover:translate-x-1 transition-transform duration-200">
+  const totalPages = data?.total ? Math.ceil(data.total / pageSize) : 0
+
+  const FilterSection = ({
+    title,
+    icon: Icon,
+    items,
+    selected,
+    onToggle
+  }: {
+    title: string,
+    icon: any,
+    items: string[],
+    selected: string[],
+    onToggle: (item: string) => void
+  }) => (
+    <AccordionItem value={title} className="border-none">
+      <AccordionTrigger className="hover:no-underline py-3 px-2 rounded-lg hover:bg-muted/50 transition-colors">
+        <span className="flex items-center gap-2 font-bold text-sm text-foreground/80">
+          <Icon className="h-4 w-4 text-primary" />
+          {title}
+        </span>
+        {selected.length > 0 && (
+          <Badge variant="secondary" className="ml-auto mr-2 h-5 min-w-5 px-1.5 text-[10px] font-bold">
+            {selected.length}
+          </Badge>
+        )}
+      </AccordionTrigger>
+      <AccordionContent className="pt-2 pb-4 px-2">
+        <div className="space-y-2">
+          {items.map((item) => (
+            <div key={item} className="flex items-start space-x-3 group cursor-pointer hover:bg-muted/30 p-1.5 rounded-md transition-all">
               <Checkbox
-                id={`faculty-${faculty}`}
-                checked={selectedFaculties.includes(faculty)}
-                onCheckedChange={() => toggleFaculty(faculty)}
-                className="border-primary/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary rounded-lg transition-all"
+                id={`${title}-${item}`}
+                checked={selected.includes(item)}
+                onCheckedChange={() => onToggle(item)}
+                className="mt-0.5 border-primary/30 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
               />
-              <Label htmlFor={`faculty-${faculty}`} className="text-sm font-semibold cursor-pointer text-muted-foreground group-hover:text-primary transition-colors">
-                {faculty}
+              <Label
+                htmlFor={`${title}-${item}`}
+                className="text-xs leading-none font-medium text-muted-foreground w-full cursor-pointer group-hover:text-foreground transition-colors pt-0.5"
+              >
+                {item}
               </Label>
             </div>
           ))}
         </div>
+      </AccordionContent>
+    </AccordionItem>
+  )
+
+  const FilterContent = () => (
+    <div className="space-y-6 h-full flex flex-col">
+      <div className="flex items-center justify-between px-1">
+        <h3 className="font-black text-lg tracking-tight flex items-center gap-2">
+          <Filter className="h-4 w-4 text-primary fill-primary/20" />
+          Filtros
+        </h3>
+        {activeFiltersCount > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="h-8 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10 -mr-2"
+          >
+            Limpiar todo
+          </Button>
+        )}
       </div>
 
-      {activeFiltersCount > 0 && (
-        <button 
-          onClick={clearFilters} 
-          className="w-full py-3 px-4 rounded-xl text-xs font-bold uppercase tracking-wider text-destructive bg-destructive/5 hover:bg-destructive/10 transition-colors border border-destructive/20"
-        >
-          Limpiar todos los filtros
-        </button>
-      )}
+      <ScrollArea className="flex-1 -mx-4 px-4">
+        <Accordion type="multiple" defaultValue={["Facultad", "Tipo"]} className="space-y-1">
+          <FilterSection
+            title="Facultad"
+            icon={School}
+            items={faculties}
+            selected={selectedFaculties}
+            onToggle={(i) => toggleFilter(i, selectedFaculties, setSelectedFaculties)}
+          />
+          <FilterSection
+            title="Carrera"
+            icon={GraduationCap}
+            items={careers}
+            selected={selectedCareers}
+            onToggle={(i) => toggleFilter(i, selectedCareers, setSelectedCareers)}
+          />
+          <FilterSection
+            title="Año"
+            icon={Calendar}
+            items={years}
+            selected={selectedYears}
+            onToggle={(i) => toggleFilter(i, selectedYears, setSelectedYears)}
+          />
+          <FilterSection
+            title="Tipo"
+            icon={BookOpen}
+            items={workTypes}
+            selected={selectedTypes}
+            onToggle={(i) => toggleFilter(i, selectedTypes, setSelectedTypes)}
+          />
+        </Accordion>
+      </ScrollArea>
     </div>
   )
 
   return (
-    <div className="space-y-10 animate-in fade-in duration-500 pb-20">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-3">
+    <div className="space-y-8 animate-in fade-in duration-500 pb-20 container mx-auto px-4 max-w-7xl">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 pb-6 border-b border-primary/10">
+        <div className="space-y-2">
           <div className="flex items-center gap-3">
-            <div className="h-12 w-1 bg-gradient-to-b from-primary to-primary/40 rounded-full"></div>
-            <h1 className="text-5xl font-black tracking-tighter text-foreground">Explorar Repositorio</h1>
+            <div className="h-10 w-1.5 bg-primary rounded-full shadow-[0_0_15px_rgba(var(--primary),0.5)]"></div>
+            <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-foreground">
+              Explorar <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary to-primary/60">Investigaciones</span>
+            </h1>
           </div>
-          <p className="text-muted-foreground font-medium text-base ml-4">Accede a la base de conocimientos global de la Universidad del Istmo.</p>
+          <p className="text-muted-foreground font-medium text-base pl-5 max-w-2xl">
+            Accede al repositorio académico de la Universidad del Istmo. Descubre tesis, artículos y proyectos destacados.
+          </p>
         </div>
       </div>
 
-      {/* Main Controls Strip */}
-      <div className="flex flex-col gap-4 p-4 md:p-6 bg-gradient-to-br from-card/80 via-card/60 to-background/40 backdrop-blur-xl rounded-[2.5rem] ring-1 ring-primary/20 md:flex-row md:items-center shadow-2xl border border-primary/10">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-6 top-1/2 -translate-y-1/2 h-5 w-5 text-primary group-focus-within:scale-125 group-focus-within:text-primary transition-all duration-300" />
-          <Input
-            type="search"
-            placeholder="Buscar por título, autor, palabras clave..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-16 h-16 bg-transparent border-0 focus:ring-2 focus:ring-primary/50 text-foreground text-lg placeholder:text-muted-foreground/50 placeholder:font-medium rounded-2xl transition-all"
-          />
-        </div>
+      {/* Main Search & Controls */}
+      <div className="sticky top-4 z-40 bg-background/80 backdrop-blur-md rounded-2xl shadow-sm border border-border/50 p-2 transition-all duration-200">
+        <div className="flex flex-col md:flex-row gap-3">
+          <div className="relative flex-1 group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+            <Input
+              type="search"
+              placeholder="Buscar por título, autor, palabras clave..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-12 h-12 bg-muted/40 border-transparent focus:bg-background focus:border-primary/20 text-base rounded-xl transition-all shadow-sm"
+            />
+          </div>
 
-        <div className="flex items-center gap-3 px-2">
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" className="lg:hidden h-12 gap-2 border-primary/20 hover:bg-primary/5 font-bold text-sm rounded-xl">
-                <SlidersHorizontal className="h-4 w-4" /> Filtros
-                {activeFiltersCount > 0 && <Badge className="ml-1 px-2 h-5 min-w-5 bg-primary text-white font-bold">{activeFiltersCount}</Badge>}
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="bg-background border-r border-primary/10">
-              <SheetHeader>
-                <SheetTitle className="text-xl font-bold text-foreground">Refinar Búsqueda</SheetTitle>
-              </SheetHeader>
-              <div className="mt-8">
+          <div className="flex items-center gap-2">
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button variant="outline" size="lg" className="lg:hidden h-12 px-4 gap-2 rounded-xl border-dashed">
+                  <SlidersHorizontal className="h-4 w-4" />
+                  Filtros
+                  {activeFiltersCount > 0 && (
+                    <Badge variant="default" className="ml-1 h-5 w-5 p-0 justify-center rounded-full text-[10px]">{activeFiltersCount}</Badge>
+                  )}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[300px] sm:w-[350px]">
                 <FilterContent />
-              </div>
-            </SheetContent>
-          </Sheet>
+              </SheetContent>
+            </Sheet>
 
-          <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
-            <SelectTrigger className="w-auto md:w-48 h-12 border-primary/20 bg-background/50 font-bold rounded-xl hover:bg-background transition-colors">
-              <SelectValue placeholder="Ordenar por" />
-            </SelectTrigger>
-            <SelectContent className="rounded-xl">
-              <SelectItem value="date" className="font-bold">Más recientes</SelectItem>
-              <SelectItem value="title" className="font-bold">Título A-Z</SelectItem>
-            </SelectContent>
-          </Select>
+            <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+              <SelectTrigger className="w-[160px] h-12 rounded-xl bg-muted/40 border-transparent hover:bg-muted/60">
+                <SelectValue placeholder="Ordenar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date">Más recientes</SelectItem>
+                <SelectItem value="title">Título A-Z</SelectItem>
+                <SelectItem value="relevance">Relevancia</SelectItem>
+              </SelectContent>
+            </Select>
 
-          <div className="hidden md:flex items-center border border-primary/20 rounded-xl p-1.5 bg-primary/5">
-            <Button
-              variant={viewMode === "list" ? "default" : "ghost"}
-              size="icon"
-              className={cn("h-9 w-9 rounded-lg font-bold transition-all", viewMode === "list" && "shadow-lg scale-105")}
-              onClick={() => setViewMode("list")}
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={viewMode === "grid" ? "default" : "ghost"}
-              size="icon"
-              className={cn("h-9 w-9 rounded-lg font-bold transition-all", viewMode === "grid" && "shadow-lg scale-105")}
-              onClick={() => setViewMode("grid")}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </Button>
+            <div className="hidden md:flex items-center bg-muted/40 rounded-xl p-1 h-12">
+              <Button
+                variant={viewMode === "list" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                className="h-10 w-10 p-0 rounded-lg"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "grid" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+                className="h-10 w-10 p-0 rounded-lg"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="flex gap-10 items-start">
-        {/* Persistent Filters Sidebar */}
-        <Card className="hidden lg:block w-80 shrink-0 border-0 shadow-2xl ring-1 ring-primary/20 bg-gradient-to-br from-card/80 via-card/60 to-background/40 backdrop-blur-xl rounded-[2rem] sticky top-20">
-          <CardHeader className="border-b border-primary/10 bg-gradient-to-r from-primary/10 to-transparent pb-6">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg font-black flex items-center gap-3">
-                <Filter className="h-5 w-5 text-primary" /> 
-                <span>Filtros</span>
-              </CardTitle>
+      <div className="flex gap-8 items-start">
+        {/* Desktop Filters Sidebar */}
+        <aside className="hidden lg:block w-72 shrink-0 sticky top-24 max-h-[calc(100vh-8rem)]">
+          <Card className="h-full border-border/50 bg-card/50 backdrop-blur-sm shadow-sm">
+            <CardContent className="p-6 h-full">
+              <FilterContent />
+            </CardContent>
+          </Card>
+        </aside>
+
+        {/* Results Area */}
+        <div className="flex-1 space-y-6 min-h-[500px]">
+          {/* Results Meta */}
+          {!isLoading && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4" />
+                <span>
+                  Mostrando <strong className="text-foreground">{data?.items?.length || 0}</strong> de <strong className="text-foreground">{data?.total || 0}</strong> resultados
+                </span>
+              </div>
               {activeFiltersCount > 0 && (
-                <button 
-                  onClick={clearFilters} 
-                  className="text-[10px] font-black uppercase text-primary hover:text-primary/80 transition-colors py-1 px-3 bg-primary/10 rounded-lg"
-                >
-                  Resetear
-                </button>
+                <div className="flex gap-2 flex-wrap justify-end">
+                  {selectedFaculties.slice(0, 1).map(f => (
+                    <Badge key={f} variant="outline" className="text-xs max-w-[150px] truncate">{f}</Badge>
+                  ))}
+                  {selectedFaculties.length > 1 && <Badge variant="outline" className="text-xs">+{selectedFaculties.length - 1} más</Badge>}
+                </div>
               )}
             </div>
-          </CardHeader>
-          <CardContent className="p-8">
-            <FilterContent />
-          </CardContent>
-        </Card>
-
-        <div className="flex-1 space-y-8">
-          <div className="flex items-center justify-between text-sm">
-            <div className="flex items-center gap-3 font-bold text-muted-foreground uppercase tracking-widest text-xs bg-primary/5 px-4 py-2 rounded-lg border border-primary/10">
-              <Database className="h-4 w-4 text-primary" />
-              <span><span className="text-primary font-black text-base">{results.length}</span> Documentos</span>
-            </div>
-          </div>
+          )}
 
           {isLoading ? (
-            <div className="py-32 flex flex-col items-center justify-center gap-5 text-center">
-              <div className="relative h-16 w-16">
-                <Loader2 className="h-16 w-16 animate-spin text-primary absolute" />
-                <div className="h-16 w-16 bg-gradient-to-r from-primary/20 to-transparent rounded-full animate-pulse"></div>
-              </div>
-              <p className="font-bold text-muted-foreground uppercase tracking-tighter text-sm">Consultando base de investigación...</p>
+            <div className="h-[400px] flex flex-col items-center justify-center gap-4 text-center">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p className="text-muted-foreground animate-pulse font-medium">Cargando investigaciones...</p>
             </div>
-          ) : results.length === 0 ? (
-            <Card className="border-0 shadow-xl bg-gradient-to-br from-card/40 via-card/20 to-background/40 backdrop-blur-sm py-24 text-center ring-1 ring-primary/10 rounded-[2rem]">
-              <CardContent>
-                <div className="bg-primary/10 p-6 rounded-full w-fit mx-auto mb-8">
-                  <Search className="h-12 w-12 text-primary/40" />
-                </div>
-                <h3 className="text-2xl font-black mb-4">Sin resultados</h3>
-                <p className="text-muted-foreground mb-10 max-w-sm mx-auto leading-relaxed">No se encontraron investigaciones que coincidan con tus criterios de búsqueda actual.</p>
-                <Button 
-                  variant="outline" 
-                  className="font-bold border-primary/30 text-primary hover:bg-primary/5" 
-                  onClick={clearFilters}
-                >
-                  Restablecer Filtros
-                </Button>
-              </CardContent>
-            </Card>
+          ) : !data || data.items.length === 0 ? (
+            <div className="py-20 flex flex-col items-center justify-center text-center p-8 border-2 border-dashed border-muted rounded-[2rem] bg-muted/10">
+              <div className="bg-muted p-6 rounded-full mb-6">
+                <Search className="h-10 w-10 text-muted-foreground" />
+              </div>
+              <h3 className="text-2xl font-bold mb-2">No se encontraron resultados</h3>
+              <p className="text-muted-foreground max-w-sm mb-8">
+                Prueba ajustando tus términos de búsqueda o filtros para encontrar lo que buscas.
+              </p>
+              <Button onClick={clearFilters} variant="outline" size="lg" className="font-semibold">
+                Limpiar filtros de búsqueda
+              </Button>
+            </div>
           ) : (
-            <div className={cn(
-              "animate-in slide-in-from-bottom-4 duration-500",
-              viewMode === "grid" 
-                ? "grid gap-6 md:grid-cols-2 lg:grid-cols-2" 
-                : "space-y-5"
-            )}>
-              {results.map((research) => (
-                <div key={research.id} className="animate-in fade-in duration-300">
-                  <ResearchCard research={research} />
+            <div className="space-y-8">
+              <div className={cn(
+                "grid gap-4",
+                viewMode === "grid"
+                  ? "grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2"
+                  : "grid-cols-1"
+              )}>
+                {data.items.map((research) => (
+                  <div key={research.id} className="animate-in fade-in slide-in-from-bottom-2 duration-500 fill-mode-backwards">
+                    <ResearchCard research={research} />
+                  </div>
+                ))}
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-center gap-4 mt-12 py-8 border-t border-border/40">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setPage(p => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                    className="h-10 w-10 rounded-full"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-muted-foreground">Página</span>
+                    <span className="text-sm font-bold text-foreground px-3 py-1 bg-muted rounded-md min-w-[3rem] text-center">
+                      {page + 1}
+                    </span>
+                    <span className="text-sm font-medium text-muted-foreground">de {totalPages}</span>
+                  </div>
+
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={page >= totalPages - 1}
+                    className="h-10 w-10 rounded-full"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>

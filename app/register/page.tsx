@@ -5,7 +5,7 @@ import type React from "react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import NextLink from "next/link"
-import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle2, ShieldCheck, GraduationCap, School, Settings } from "lucide-react"
+import { Eye, EyeOff, Mail, Lock, User, AlertCircle, CheckCircle2, ShieldCheck, GraduationCap, School } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -13,7 +13,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { UniversityLogo } from "@/components/university-logo"
 import { useAuth } from "@/lib/auth-context"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 
 export default function RegisterPage() {
     const router = useRouter()
@@ -42,10 +41,6 @@ export default function RegisterPage() {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { id, value } = e.target
         setFormData((prev) => ({ ...prev, [id]: value }))
-    }
-
-    const handleRoleChange = (role: string) => {
-        setFormData((prev) => ({ ...prev, role: role as any }))
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -179,45 +174,7 @@ export default function RegisterPage() {
                                     </Alert>
                                 )}
 
-                                <div className="space-y-2 md:space-y-3">
-                                    <Label className="text-xs md:text-sm font-semibold">Tipo de Usuario</Label>
-                                    <RadioGroup
-                                        defaultValue="estudiante"
-                                        onValueChange={handleRoleChange}
-                                        className="grid grid-cols-3 gap-2"
-                                    >
-                                        <div>
-                                            <RadioGroupItem value="estudiante" id="r-estudiante" className="sr-only" />
-                                            <Label
-                                                htmlFor="r-estudiante"
-                                                className={`flex flex-col items-center justify-center rounded-lg md:rounded-xl border-2 p-2 md:p-3 hover:bg-muted cursor-pointer transition-all text-[11px] md:text-xs ${formData.role === 'estudiante' ? 'border-primary bg-primary/5 text-primary' : 'border-muted'}`}
-                                            >
-                                                <GraduationCap className="h-4 md:h-5 w-4 md:w-5 mb-1" />
-                                                <span className="font-medium">Estudiante</span>
-                                            </Label>
-                                        </div>
-                                        <div>
-                                            <RadioGroupItem value="docente" id="r-docente" className="sr-only" />
-                                            <Label
-                                                htmlFor="r-docente"
-                                                className={`flex flex-col items-center justify-center rounded-lg md:rounded-xl border-2 p-2 md:p-3 hover:bg-muted cursor-pointer transition-all text-[11px] md:text-xs ${formData.role === 'docente' ? 'border-primary bg-primary/5 text-primary' : 'border-muted'}`}
-                                            >
-                                                <School className="h-4 md:h-5 w-4 md:w-5 mb-1" />
-                                                <span className="font-medium">Docente</span>
-                                            </Label>
-                                        </div>
-                                        <div>
-                                            <RadioGroupItem value="admin" id="r-admin" className="sr-only" />
-                                            <Label
-                                                htmlFor="r-admin"
-                                                className={`flex flex-col items-center justify-center rounded-lg md:rounded-xl border-2 p-2 md:p-3 hover:bg-muted cursor-pointer transition-all text-[11px] md:text-xs ${formData.role === 'admin' ? 'border-primary bg-primary/5 text-primary' : 'border-muted'}`}
-                                            >
-                                                <Settings className="h-4 md:h-5 w-4 md:w-5 mb-1" />
-                                                <span className="font-medium">Admin</span>
-                                            </Label>
-                                        </div>
-                                    </RadioGroup>
-                                </div>
+                                {/* Role selection removed - Defaults to Estudiante */}
 
                                 <div className="grid grid-cols-2 gap-2 md:gap-4">
                                     <div className="space-y-1.5 md:space-y-2">
@@ -338,6 +295,6 @@ export default function RegisterPage() {
                     </Card>
                 </div>
             </div>
-        </div>
+        </div >
     )
 }

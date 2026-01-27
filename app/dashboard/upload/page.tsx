@@ -264,7 +264,7 @@ export default function UploadPage() {
         </Badge>
       </div>
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-4 gap-2 md:gap-4">
         {steps.map((step, idx) => (
           <div key={step} className="space-y-2">
             <div className={cn(
@@ -272,7 +272,7 @@ export default function UploadPage() {
               currentStep > idx ? "bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]" : "bg-muted"
             )} />
             <p className={cn(
-              "text-[9px] font-black uppercase tracking-widest text-center",
+              "text-[9px] font-black uppercase tracking-widest text-center hidden sm:block",
               currentStep > idx ? "text-foreground" : "text-muted-foreground/30"
             )}>{step}</p>
           </div>
@@ -280,7 +280,7 @@ export default function UploadPage() {
       </div>
 
       <Card className="border-0 shadow-2xl ring-1 ring-border/50 bg-card/40 backdrop-blur-md rounded-[2rem] overflow-hidden">
-        <CardContent className="p-10">
+        <CardContent className="p-6 md:p-10">
           {currentStep === 1 && (
             <div className="space-y-10 animate-in slide-in-from-bottom-4 duration-500">
               <div className="space-y-4">

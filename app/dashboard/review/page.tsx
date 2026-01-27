@@ -15,6 +15,8 @@ import {
   ShieldAlert,
   Trash2,
   Download,
+  SearchCheck,
+  Globe,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -44,6 +46,10 @@ export default function ReviewPanelPage() {
   const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(null)
   const [reviewComment, setReviewComment] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Integration States
+  const [plagiarismResult, setPlagiarismResult] = useState<{ score: number, status: string, reportUrl: string } | null>(null)
+  const [isCheckingPlagiarism, setIsCheckingPlagiarism] = useState(false)
 
   const isAdmin = user?.role === "admin"
   const isDocente = user?.role === "docente"
@@ -77,22 +83,91 @@ export default function ReviewPanelPage() {
   const rejected = investigations.filter(r => r.status === 'rechazado')
 
   const handleReviewSubmit = async () => {
-    if (!selectedResearch || !reviewAction) return
+    if (!selectedResearch || !reviewAction || !user) return
 
     setIsSubmitting(true)
     try {
       const newStatus = reviewAction === 'approve' ? 'aprobado' : 'rechazado'
+      let doi = null
+
+      if (newStatus === 'aprobado') {
+        try {
+          // Generate DOI automatically
+          const { generateDOI } = await import('@/lib/integrations')
+          doi = await generateDOI(selectedResearch.id, selectedResearch)
+        } catch (e) {
+          console.error("Error generating DOI", e)
+          // Proceed even if DOI fails, but maybe log it
+        }
+      }
+
+      // Update status & DOI
+      const updateData: any = { status: newStatus }
+      if (doi) updateData.doi = doi
+      if (plagiarismResult) updateData.plagiarism_score = plagiarismResult.score
+
       const { error } = await supabase
         .from('investigations')
-        .update({ status: newStatus })
+        .update(updateData)
         .eq('id', selectedResearch.id)
 
       if (error) throw error
 
+      // Add feedback comment if provided
+      // Add feedback comment if provided
+      if (reviewComment.trim() || doi) {
+        let content = ""
+        const authorName = Array.isArray(selectedResearch.authors)
+          ? selectedResearch.authors[0] // Use first author as primary contact
+          : selectedResearch.authors || "Autor";
+
+        if (newStatus === 'aprobado') {
+          const date = new Date().toLocaleDateString('es-GT', { year: 'numeric', month: 'long', day: 'numeric' })
+          content = `- Revisión aprobada y DOI asignado – Unis Repo
+
+Estimado/a ${authorName},
+
+Nos complace informarle que su trabajo de investigación ha sido aprobado satisfactoriamente tras el proceso de revisión académica.
+
+Detalles de la publicación:
+
+   Estado de revisión: Aprobado
+   Repositorio: Unis Repo
+   DOI asignado: ${doi || "Pendiente de asignación"}
+   Fecha: ${date}
+
+Su investigación ya cuenta con un Identificador de Objeto Digital (DOI), lo que garantiza su trazabilidad, citación y reconocimiento académico a nivel internacional.
+
+---
+${reviewComment ? `Nota del Revisor: ${reviewComment}` : ''}`
+        } else {
+          content = `❌ Revisión Rechazada
+
+Estimado/a ${authorName},
+
+Lamentamos informarle que su trabajo de investigación no ha cumplido con los criterios necesarios para su aprobación en esta instancia.
+
+**Motivo del rechazo / Retroalimentación:
+${reviewComment || "No se proporcionaron detalles específicos."}
+
+Le invitamos a realizar las correcciones indicadas y volver a enviar su trabajo para una nueva revisión.`
+        }
+
+        await supabase.from('comments').insert({
+          investigation_id: selectedResearch.id,
+          user_id: user.id,
+          content: content.trim(),
+        })
+      }
+
       await fetchInvestigations()
-      setSelectedResearch(null)
+
+      // Close all dialogs
       setReviewAction(null)
+      setSelectedResearch(null)
       setReviewComment("")
+      setPlagiarismResult(null)
+
     } catch (error) {
       console.error("Error submitting review:", error)
     } finally {
@@ -363,6 +438,59 @@ export default function ReviewPanelPage() {
                     </a>
                   </div>
                 )}
+
+                {/* Plagiarism Check Section */}
+                <div className="space-y-3 pt-6 border-t border-dashed">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Validación Académica</h4>
+                    {plagiarismResult && (
+                      <Badge variant={plagiarismResult.status === 'warning' ? 'destructive' : 'outline'} className="font-bold">
+                        {plagiarismResult.score}% Similitud
+                      </Badge>
+                    )}
+                  </div>
+
+                  {!plagiarismResult ? (
+                    <Button
+                      variant="secondary"
+                      className="w-full h-12 rounded-2xl font-bold gap-2 bg-muted/40 hover:bg-muted/60"
+                      disabled={isCheckingPlagiarism}
+                      onClick={async () => {
+                        setIsCheckingPlagiarism(true)
+                        try {
+                          const { checkPlagiarism } = await import('@/lib/integrations')
+                          const result = await checkPlagiarism(selectedResearch.file_url)
+                          setPlagiarismResult(result)
+                        } catch (e) {
+                          console.error(e)
+                          alert("Error al verificar plagio")
+                        } finally {
+                          setIsCheckingPlagiarism(false)
+                        }
+                      }}
+                    >
+                      {isCheckingPlagiarism ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchCheck className="h-4 w-4" />}
+                      Ejecutar Análisis de Plagio (Turnitin)
+                    </Button>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-muted/30 border border-muted/50 space-y-3">
+                      <div className="flex items-center gap-4">
+                        <div className={cn("p-3 rounded-xl", plagiarismResult.status === 'warning' ? 'bg-red-500/10 text-red-600' : 'bg-green-500/10 text-green-600')}>
+                          {plagiarismResult.status === 'warning' ? <ShieldAlert className="h-6 w-6" /> : <CheckCircle className="h-6 w-6" />}
+                        </div>
+                        <div>
+                          <p className="font-bold text-sm">Análisis Completado</p>
+                          <p className="text-xs text-muted-foreground">
+                            Nivel de coincidencia: <span className="font-black text-foreground">{plagiarismResult.score}%</span>
+                          </p>
+                        </div>
+                      </div>
+                      <Button size="sm" variant="link" asChild className="p-0 h-auto text-primary font-bold text-xs" >
+                        <a href={plagiarismResult.reportUrl} target="_blank">Ver Reporte Detallado <ChevronRight className="h-3 w-3 ml-1" /></a>
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </div>
               <DialogFooter className="p-8 bg-muted/20 border-t gap-4">
                 <Button

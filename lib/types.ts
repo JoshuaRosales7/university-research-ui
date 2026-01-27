@@ -183,6 +183,7 @@ export interface DSpaceAuthStatus {
   okay: boolean
   authenticated: boolean
   authenticationMethod?: string
+  type?: string
   _embedded?: {
     eperson?: DSpaceEPerson
   }

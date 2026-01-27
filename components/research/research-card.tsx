@@ -20,7 +20,8 @@ interface ResearchCardProps {
 }
 
 export function ResearchCard({ research, showStatus = false }: ResearchCardProps) {
-  const status = statusConfig[research.status] || statusConfig.en_revision
+  const statusKey = research.status?.toLowerCase() || 'en_revision'
+  const status = statusConfig[statusKey] || statusConfig.en_revision
 
   return (
     <Card className="border-0 shadow-xl ring-1 ring-primary/10 hover:ring-primary/40 hover:shadow-2xl transition-all duration-300 group overflow-hidden bg-gradient-to-br from-card/80 via-card/60 to-background/40 backdrop-blur-sm rounded-2xl">
@@ -89,17 +90,17 @@ export function ResearchCard({ research, showStatus = false }: ResearchCardProps
             {Array.isArray(research.keywords) && research.keywords.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 pt-2">
                 {research.keywords.slice(0, 4).map((keyword: string) => (
-                  <Badge 
-                    key={keyword} 
-                    variant="outline" 
+                  <Badge
+                    key={keyword}
+                    variant="outline"
                     className="text-[10px] uppercase font-bold tracking-tighter bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary transition-colors duration-200"
                   >
                     {keyword}
                   </Badge>
                 ))}
                 {research.keywords.length > 4 && (
-                  <Badge 
-                    variant="outline" 
+                  <Badge
+                    variant="outline"
                     className="text-[10px] uppercase font-bold tracking-tighter bg-muted/50 border-muted/50 text-muted-foreground"
                   >
                     +{research.keywords.length - 4}
@@ -110,10 +111,10 @@ export function ResearchCard({ research, showStatus = false }: ResearchCardProps
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3 pt-5 border-t border-primary/10">
-              <Button 
-                variant="default" 
-                size="sm" 
-                asChild 
+              <Button
+                variant="default"
+                size="sm"
+                asChild
                 className="font-bold gap-2 shadow-lg hover:shadow-2xl transition-all duration-200 rounded-lg group-hover:bg-primary group-hover:text-white"
               >
                 <Link href={`/dashboard/research/${research.id}`}>
@@ -121,10 +122,10 @@ export function ResearchCard({ research, showStatus = false }: ResearchCardProps
                 </Link>
               </Button>
               {research.file_url && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  asChild 
+                <Button
+                  variant="outline"
+                  size="sm"
+                  asChild
                   className="gap-2 font-bold hover:bg-primary/10 border-primary/30 text-primary hover:text-primary rounded-lg transition-all duration-200"
                 >
                   <a href={research.file_url} target="_blank" rel="noopener noreferrer">

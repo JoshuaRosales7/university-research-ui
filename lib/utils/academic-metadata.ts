@@ -23,6 +23,10 @@ export interface Investigation {
     work_type?: string
     created_at: string
     updated_at: string
+    views_count?: number
+    downloads_count?: number
+    reviewed_at?: string
+    status?: string
 }
 
 interface AcademicMetadataProps {

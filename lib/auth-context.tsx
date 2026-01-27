@@ -2,7 +2,7 @@
 
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from "react"
 import { supabase } from "./supabase"
 import type { AppUser, Profile } from "./types"
 
@@ -12,6 +12,7 @@ interface AuthContextType {
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
   register: (data: { email: string; password: string; firstName: string; lastName: string; role: "admin" | "docente" | "estudiante" }) => Promise<{ success: boolean; error?: string }>
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
   checkAuth: () => Promise<void>
   refreshUser: () => Promise<void>
@@ -22,12 +23,14 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AppUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const profileCache = useState(new Map<string, Profile>())[0]
+  // Use a ref for cache to avoid dependency issues in useCallback
+  const profileCache = useRef(new Map<string, Profile>())
 
+  // Memoize fetching profile to avoid unnecessary re-renders or recreated functions
   const fetchProfile = useCallback(async (userId: string): Promise<Profile | null> => {
     // Check cache first
-    if (profileCache.has(userId)) {
-      return profileCache.get(userId)!
+    if (profileCache.current.has(userId)) {
+      return profileCache.current.get(userId)!
     }
 
     try {
@@ -38,7 +41,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle()
 
       if (error) {
-        // Only log non-abort errors
         if (error.message !== 'AbortError' && !error.message.includes('aborted')) {
           console.error("[Auth] Error fetching profile:", error.message)
         }
@@ -46,21 +48,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (data) {
-        profileCache.set(userId, data as Profile)
+        profileCache.current.set(userId, data as Profile)
+        return data as Profile
       }
-      return data as Profile
+      return null
     } catch (error: any) {
-      // Ignore abort errors - they're normal during React strict mode
       if (error.name !== 'AbortError' && !error.message?.includes('aborted')) {
         console.error("[Auth] Unexpected error fetching profile:", error)
       }
       return null
     }
-  }, [profileCache])
+  }, [])
 
   const convertToAppUser = useCallback((supabaseUser: any, profile: Profile | null): AppUser | null => {
     if (!supabaseUser) return null
 
+    // Prioritize profile data, fallback to metadata
     return {
       id: supabaseUser.id,
       email: supabaseUser.email || "",
@@ -73,77 +76,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
-    // Create an AbortController for this effect lifecycle
-    const abortController = new AbortController()
-    let isActive = true
+    let mounted = true
 
-    const initAuth = async () => {
-      if (!isActive) return
-
-      setIsLoading(true)
+    const initializeAuth = async () => {
       try {
+        // 1. Get initial session
         const { data: { session }, error } = await supabase.auth.getSession()
 
-        if (!isActive) return // Component unmounted
+        if (error) throw error
 
-        if (error) {
-          // Only log non-abort errors
-          if (error.message !== 'AbortError' && !error.message.includes('aborted')) {
-            console.error("[Auth] Session restoration error:", error)
-          }
-          setUser(null)
-          setIsLoading(false)
-          return
-        }
-
-        if (session?.user) {
+        if (session?.user && mounted) {
+          // Fetch profile in parallel if needed, but here we wait to ensure consistent state
           const profile = await fetchProfile(session.user.id)
-          if (!isActive) return // Component unmounted during fetch
-
-          const appUser = convertToAppUser(session.user, profile)
-          setUser(appUser)
-        } else {
-          setUser(null)
+          if (mounted) {
+            setUser(convertToAppUser(session.user, profile))
+          }
         }
       } catch (error: any) {
-        if (!isActive) return
-
-        // Ignore abort errors - they're normal during React strict mode
-        if (error.name !== 'AbortError' && !error.message?.includes('aborted')) {
-          console.error("[Auth] Session restoration error:", error)
+        if (mounted && error.message !== 'AbortError' && !error.message?.includes('aborted')) {
+          console.error("[Auth] Error initializing auth:", error)
         }
-        setUser(null)
       } finally {
-        if (isActive) {
-          setIsLoading(false)
-        }
+        if (mounted) setIsLoading(false)
       }
     }
 
-    initAuth()
+    initializeAuth()
 
+    // 2. Listen for changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!isActive) return
+      if (!mounted) return
 
       console.log("[Auth] Auth state change:", event)
-      if (session?.user) {
-        const profile = await fetchProfile(session.user.id)
-        if (!isActive) return
 
-        const appUser = convertToAppUser(session.user, profile)
-        setUser(appUser)
-      } else {
+      if (event === 'SIGNED_OUT') {
         setUser(null)
+        setIsLoading(false)
+        profileCache.current.clear() // Clear cache on logout
+      } else if (session?.user) {
+        // For SIGNED_IN, TOKEN_REFRESHED, etc.
+        const profile = await fetchProfile(session.user.id)
+        if (mounted) {
+          setUser(convertToAppUser(session.user, profile))
+          setIsLoading(false)
+        }
+      } else {
+        // Fallback for cases with no session (should match SIGNED_OUT usually)
+        if (mounted) {
+          setUser(null)
+          setIsLoading(false)
+        }
       }
-      setIsLoading(false)
     })
 
     return () => {
-      isActive = false
-      abortController.abort() // Clean abort on unmount
+      mounted = false
       subscription.unsubscribe()
     }
   }, [fetchProfile, convertToAppUser])
+
+  // ... (keep login, register, logout, etc. methods mostly same, but ensure they don't break)
+  // Note: we need to update the methods to use the ref based cache and consistent logic if they rely on state.
+  // But they mostly call supabase directly.
 
   const login = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true)
@@ -158,16 +152,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return { success: false, error: error.message }
       }
 
-      const profile = await fetchProfile(data.user.id)
-      const appUser = convertToAppUser(data.user, profile)
-      setUser(appUser)
-
+      // State update happens in onAuthStateChange
       return { success: true }
-    } catch (error) {
+    } catch (error: any) {
       console.error("[Auth] Login unexpected error:", error)
       return { success: false, error: "An unexpected error occurred" }
     } finally {
-      setIsLoading(false)
+      // Loading state might be handled by onAuthStateChange, but strictly safe to set here too 
+      // if we want immediate feedback, though onAuthStateChange is reliable.
+      // We'll leave it to onAuthStateChange to set isLoading(false) to avoid race/flicker
     }
   }
 
@@ -180,7 +173,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true)
     try {
-      console.log("[Auth] Attempting sign up for:", data.email)
       const { data: authData, error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,
@@ -195,19 +187,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
 
       if (error) {
-        console.error("[Auth] Sign up error:", error.message)
         return { success: false, error: error.message }
       }
 
-      if (authData.user) {
-        console.log("[Auth] User created successfully:", authData.user.id)
-        const appUser = convertToAppUser(authData.user, null)
-        setUser(appUser)
+      // If auto-confirm is enabled, onAuthStateChange will catch the login
+      return { success: true }
+    } catch (error: any) {
+      return { success: false, error: "An unexpected error occurred" }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    setIsLoading(true)
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/update-password`,
+      })
+
+      if (error) {
+        return { success: false, error: error.message }
       }
 
       return { success: true }
-    } catch (error) {
-      console.error("[Auth] Registration unexpected error:", error)
+    } catch (error: any) {
+      console.error("Reset password error:", error)
       return { success: false, error: "An unexpected error occurred" }
     } finally {
       setIsLoading(false)
@@ -218,38 +223,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true)
     try {
       await supabase.auth.signOut()
-      setUser(null)
+      // State update handled by onAuthStateChange (SIGNED_OUT)
     } catch (error) {
       console.error("[Auth] Logout error:", error)
-    } finally {
-      setIsLoading(false)
+      setIsLoading(false) // Force stop loading if error
     }
   }
 
   const checkAuth = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        const profile = await fetchProfile(session.user.id)
-        const appUser = convertToAppUser(session.user, profile)
-        setUser(appUser)
-      } else {
-        setUser(null)
-      }
-    } catch (error: any) {
-      if (error.name !== 'AbortError' && !error.message?.includes('aborted')) {
-        console.error("[Auth] Check auth error:", error)
-      }
-      setUser(null)
+    // Manually trigger a check if needed, though listeners usually handle it
+    const { data: { session } } = await supabase.auth.getSession()
+    if (session?.user) {
+      const profile = await fetchProfile(session.user.id)
+      setUser(convertToAppUser(session.user, profile))
     }
   }
 
   const refreshUser = async () => {
     const { data: { user: supabaseUser } } = await supabase.auth.getUser()
     if (supabaseUser) {
+      // Force refresh profile bypassing cache?
+      profileCache.current.delete(supabaseUser.id)
       const profile = await fetchProfile(supabaseUser.id)
-      const appUser = convertToAppUser(supabaseUser, profile)
-      setUser(appUser)
+      setUser(convertToAppUser(supabaseUser, profile))
     }
   }
 
@@ -259,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAuthenticated: !!user,
     login,
     register,
+    resetPassword,
     logout,
     checkAuth,
     refreshUser,

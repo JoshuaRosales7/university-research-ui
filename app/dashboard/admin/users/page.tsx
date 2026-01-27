@@ -278,8 +278,8 @@ export default function AdminUsersPage() {
                                                 {new Date(u.updated_at).toLocaleDateString('es-GT')}
                                             </TableCell>
                                             <TableCell className="text-right">
-                                                <Button variant="ghost" size="sm" className="font-bold rounded-xl">
-                                                    Ver Perfil
+                                                <Button variant="ghost" size="sm" className="font-bold rounded-xl" asChild>
+                                                    <Link href={`/dashboard/user/${u.id}`}>Ver Perfil</Link>
                                                 </Button>
                                             </TableCell>
                                         </TableRow>
