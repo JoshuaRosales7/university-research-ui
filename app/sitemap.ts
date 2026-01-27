@@ -44,10 +44,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         // Obtener todas las investigaciones aprobadas con manejo de errores
         const { data: investigations, error } = await supabase
             .from('investigations')
-            .select('slug, updated_at, created_at, title')
+            .select('slug, created_at, title')
             .eq('status', 'aprobado')
             .not('slug', 'is', null) // Solo investigaciones con slug
-            .order('updated_at', { ascending: false })
+            .order('created_at', { ascending: false })
             .limit(1000) // Límite de seguridad
 
         if (error) {
@@ -61,7 +61,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
             .filter(inv => inv.slug) // Doble verificación de slug
             .map((inv) => ({
                 url: `${baseUrl}/research/${inv.slug}`,
-                lastModified: new Date(inv.updated_at || inv.created_at),
+                lastModified: new Date(inv.created_at),
                 changeFrequency: 'weekly' as const, // Las investigaciones se actualizan ocasionalmente
                 priority: 0.8, // Alta prioridad - contenido principal
             }))
