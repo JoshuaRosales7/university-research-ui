@@ -1,6 +1,7 @@
 'use client'
 
 import { Download, Share2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 
@@ -13,18 +14,21 @@ export function ActionButtons({ investigationId, fileUrl }: ActionButtonsProps) 
     const handleDownload = async () => {
         // Registrar descarga
         await supabase.rpc('increment_downloads', { investigation_id: investigationId })
+        // No necesitamos toast aquí, la descarga es feedback suficiente, pero podríamos añadir uno
     }
 
     const handleShare = () => {
         navigator.clipboard.writeText(window.location.href)
-        alert('¡Enlace copiado al portapapeles!')
+        toast.success('Enlace copiado', {
+            description: 'La URL ha sido copiada al portapapeles.'
+        })
     }
 
     return (
         <div className="flex flex-wrap gap-3">
             {fileUrl && (
                 <Button
-                    className="font-black h-12 px-8 gap-2 shadow-lg rounded-xl"
+                    className="font-bold h-11 px-6 gap-2 shadow-lg shadow-primary/20 rounded-xl hover:scale-105 transition-transform"
                     asChild
                 >
                     <a
@@ -38,8 +42,8 @@ export function ActionButtons({ investigationId, fileUrl }: ActionButtonsProps) 
                 </Button>
             )}
             <Button
-                variant="outline"
-                className="font-bold h-12 px-8 gap-2 rounded-xl"
+                variant="secondary"
+                className="font-bold h-11 px-6 gap-2 rounded-xl hover:bg-muted-foreground/10 transition-colors"
                 onClick={handleShare}
             >
                 <Share2 className="h-4 w-4" /> Compartir

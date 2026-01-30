@@ -24,8 +24,50 @@ async function getRecentInvestigations() {
   return data || []
 }
 
+// Fetch stats server-side
+async function getStats() {
+  try {
+    const [docsRes, authorsRes, facultiesRes] = await Promise.all([
+      // Count approved investigations
+      supabase
+        .from('investigations')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'aprobado'),
+
+      // Count registered researchers (profiles)
+      supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true }),
+
+      // Get unique faculties from approved investigations
+      supabase
+        .from('investigations')
+        .select('faculty')
+        .eq('status', 'aprobado')
+    ])
+
+    const uniqueFaculties = new Set(
+      (facultiesRes.data || [])
+        .map(i => i.faculty)
+        .filter(Boolean)
+    ).size
+
+    return {
+      documents: docsRes.count || 0,
+      authors: authorsRes.count || 0,
+      faculties: uniqueFaculties || 0
+    }
+  } catch (error) {
+    console.error('Error fetching stats:', error)
+    return { documents: 0, authors: 0, faculties: 0 }
+  }
+}
+
 export default async function LandingPage() {
-  const investigations = await getRecentInvestigations()
+  const [investigations, stats] = await Promise.all([
+    getRecentInvestigations(),
+    getStats()
+  ])
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans selection:bg-primary/20">
@@ -46,6 +88,7 @@ export default async function LandingPage() {
           </div>
         </div>
       </header>
+
 
       <main className="flex-1">
         {/* Hero Section */}
@@ -89,15 +132,15 @@ export default async function LandingPage() {
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-8 max-w-4xl mx-auto mt-16 pt-16 border-t border-border/40 animate-in fade-in zoom-in duration-1000 delay-300">
               <div className="space-y-2">
-                <h4 className="text-3xl font-black text-foreground">1.2k+</h4>
+                <h4 className="text-3xl font-black text-foreground">{stats.documents}+</h4>
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Documentos</p>
               </div>
               <div className="space-y-2">
-                <h4 className="text-3xl font-black text-foreground">500+</h4>
+                <h4 className="text-3xl font-black text-foreground">{stats.authors}+</h4>
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Autores</p>
               </div>
               <div className="space-y-2">
-                <h4 className="text-3xl font-black text-foreground">8</h4>
+                <h4 className="text-3xl font-black text-foreground">{stats.faculties}</h4>
                 <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Facultades</p>
               </div>
               <div className="space-y-2">
