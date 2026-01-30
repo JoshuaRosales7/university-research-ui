@@ -18,7 +18,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://repositorio.unis.edu.gt"),
+  metadataBase: new URL("https://unisrepo.netlify.app"),
   title: {
     default: "Repositorio Institucional UNIS",
     template: "%s | UNIS Repositorio",
@@ -31,6 +31,9 @@ export const metadata: Metadata = {
   referrer: "origin-when-cross-origin",
   creator: "Universidad del Istmo",
   publisher: "Universidad del Istmo",
+  alternates: {
+    canonical: "./",
+  },
   formatDetection: {
     email: false,
     address: false,

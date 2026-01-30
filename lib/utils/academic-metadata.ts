@@ -46,7 +46,7 @@ interface AcademicMetadataProps {
  */
 export function generateAcademicMetadata(
     investigation: Investigation,
-    baseUrl: string = 'https://repositorio.unis.edu.gt'
+    baseUrl: string = 'https://unisrepo.netlify.app'
 ): Metadata {
     const authors = Array.isArray(investigation.authors)
         ? investigation.authors
@@ -133,7 +133,7 @@ export function generateAcademicMetadata(
  * 
  * Esto ayuda a Google y otros motores a entender mejor el contenido
  */
-export function generateScholarlyArticleJsonLd(investigation: Investigation, baseUrl: string = 'https://repositorio.unis.edu.gt') {
+export function generateScholarlyArticleJsonLd(investigation: Investigation, baseUrl: string = 'https://unisrepo.netlify.app') {
     const authors = Array.isArray(investigation.authors)
         ? investigation.authors
         : [investigation.authors]
