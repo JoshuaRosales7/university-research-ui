@@ -50,6 +50,8 @@ export default function ReviewPanelPage() {
   // Integration States
   const [plagiarismResult, setPlagiarismResult] = useState<{ score: number, status: string, reportUrl: string } | null>(null)
   const [isCheckingPlagiarism, setIsCheckingPlagiarism] = useState(false)
+  const [isRequestingFile, setIsRequestingFile] = useState(false)
+  const [fileRequestSent, setFileRequestSent] = useState(false)
 
   const isAdmin = user?.role === "admin"
   const isDocente = user?.role === "docente"
@@ -193,6 +195,7 @@ Le invitamos a realizar las correcciones indicadas y volver a enviar su trabajo 
       setSelectedResearch(null)
       setReviewComment("")
       setPlagiarismResult(null)
+      setFileRequestSent(false)
 
       toast({
         title: newStatus === 'aprobado' ? "Investigación Aprobada" : "Investigación Rechazada",
@@ -498,27 +501,80 @@ Le invitamos a realizar las correcciones indicadas y volver a enviar su trabajo 
                   </div>
 
                   {!plagiarismResult ? (
-                    <Button
-                      variant="secondary"
-                      className="w-full h-12 rounded-2xl font-bold gap-2 bg-muted/40 hover:bg-muted/60"
-                      disabled={isCheckingPlagiarism}
-                      onClick={async () => {
-                        setIsCheckingPlagiarism(true)
-                        try {
-                          const { checkPlagiarism } = await import('@/lib/integrations')
-                          const result = await checkPlagiarism(selectedResearch.file_url)
-                          setPlagiarismResult(result)
-                        } catch (e) {
-                          console.error(e)
-                          alert("Error al verificar plagio")
-                        } finally {
-                          setIsCheckingPlagiarism(false)
-                        }
-                      }}
-                    >
-                      {isCheckingPlagiarism ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchCheck className="h-4 w-4" />}
-                      Ejecutar Análisis de Plagio (Turnitin)
-                    </Button>
+                    selectedResearch.file_url ? (
+                      <Button
+                        variant="secondary"
+                        className="w-full h-12 rounded-2xl font-bold gap-2 bg-muted/40 hover:bg-muted/60"
+                        disabled={isCheckingPlagiarism}
+                        onClick={async () => {
+                          setIsCheckingPlagiarism(true)
+                          try {
+                            const { checkPlagiarism } = await import('@/lib/integrations')
+                            const result = await checkPlagiarism(selectedResearch.file_url)
+                            setPlagiarismResult(result)
+                          } catch (e) {
+                            console.error(e)
+                            alert("Error al verificar plagio")
+                          } finally {
+                            setIsCheckingPlagiarism(false)
+                          }
+                        }}
+                      >
+                        {isCheckingPlagiarism ? <Loader2 className="h-4 w-4 animate-spin" /> : <SearchCheck className="h-4 w-4" />}
+                        Ejecutar Análisis de Plagio (Turnitin)
+                      </Button>
+                    ) : (
+                      <Button
+                        variant={fileRequestSent ? "default" : "outline"}
+                        className={cn(
+                          "w-full h-12 rounded-2xl font-bold gap-2 transition-all",
+                          fileRequestSent ? "bg-green-600 hover:bg-green-700 border-green-600 text-white" : "border-primary/20 text-primary hover:bg-primary/5"
+                        )}
+                        disabled={isRequestingFile || fileRequestSent}
+                        onClick={async () => {
+                          if (!user) return
+                          setIsRequestingFile(true)
+                          try {
+                            // 1. Enviar Notificación
+                            await supabase.from('notifications').insert({
+                              user_id: selectedResearch.owner_id,
+                              actor_id: user.id,
+                              type: 'system',
+                              title: 'Acción Requerida: Validación Académica',
+                              message: `El departamento de Validación Académica requiere el documento PDF de tu investigación "${selectedResearch.title}" para proceder con el análisis de plagio y aprobación final. Por favor, cárgalo lo antes posible.`,
+                              reference_id: selectedResearch.id
+                            })
+
+                            // 2. Dejar registro en comentarios
+                            await supabase.from('comments').insert({
+                              investigation_id: selectedResearch.id,
+                              user_id: user.id,
+                              content: `⚠️ **Solicitud de Archivo (Validación Académica)**\n\nSe ha solicitado formalmente al autor que cargue el documento PDF para proceder con la revisión de Plagio y aprobación final.`
+                            })
+
+                            toast({
+                              title: "Solicitud Enviada Correctamente",
+                              description: "Se ha notificado al autor y se ha creado un registro en el historial de comentarios."
+                            })
+                            setFileRequestSent(true)
+                          } catch (e) {
+                            console.error(e)
+                            toast({ variant: "destructive", title: "Error", description: "No se pudo enviar la solicitud." })
+                          } finally {
+                            setIsRequestingFile(false)
+                          }
+                        }}
+                      >
+                        {isRequestingFile ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : fileRequestSent ? (
+                          <CheckCircle className="h-4 w-4" />
+                        ) : (
+                          <FileText className="h-4 w-4" />
+                        )}
+                        {fileRequestSent ? "Solicitud Enviada" : "Solicitar Archivo al Autor"}
+                      </Button>
+                    )
                   ) : (
                     <div className="p-4 rounded-2xl bg-muted/30 border border-muted/50 space-y-3">
                       <div className="flex items-center gap-4">

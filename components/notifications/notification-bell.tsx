@@ -94,25 +94,35 @@ export function NotificationBell() {
         }
     }
 
-    async function markAsRead(notificationId: string) {
+    async function markAsRead(e: any, notificationId: string) {
+        if (e) {
+            e.stopPropagation()
+            e.preventDefault()
+        }
+
+        // Optimistic update
+        setNotifications(prev =>
+            prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
+        )
+        setUnreadCount(prev => Math.max(0, prev - 1))
+
         const { error } = await supabase
             .from('notifications')
             .update({ read: true })
             .eq('id', notificationId)
 
         if (error) {
-            console.debug('[NotificationBell] Could not mark as read:', error.message)
-            return
+            console.error('[NotificationBell] Could not mark as read:', error.message)
+            // Revert on error if needed, but for 'read' status it's usually fine to keep it read in UI
         }
-
-        setNotifications(prev =>
-            prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-        )
-        setUnreadCount(prev => Math.max(0, prev - 1))
     }
 
     async function markAllAsRead() {
         if (!user) return
+
+        // Optimistic update
+        setNotifications(prev => prev.map(n => ({ ...n, read: true })))
+        setUnreadCount(0)
 
         const { error } = await supabase
             .from('notifications')
@@ -121,30 +131,29 @@ export function NotificationBell() {
             .eq('read', false)
 
         if (error) {
-            console.debug('[NotificationBell] Could not mark all as read:', error.message)
-            return
+            console.error('[NotificationBell] Could not mark all as read:', error.message)
         }
-
-        setNotifications(prev => prev.map(n => ({ ...n, read: true })))
-        setUnreadCount(0)
     }
 
-    async function deleteNotification(notificationId: string) {
+    async function deleteNotification(e: any, notificationId: string) {
+        e.stopPropagation()
+        e.preventDefault()
+
+        // Optimistic update
+        const notification = notifications.find(n => n.id === notificationId)
+        setNotifications(prev => prev.filter(n => n.id !== notificationId))
+        if (notification && !notification.read) {
+            setUnreadCount(prev => Math.max(0, prev - 1))
+        }
+
         const { error } = await supabase
             .from('notifications')
             .delete()
             .eq('id', notificationId)
 
         if (error) {
-            console.debug('[NotificationBell] Could not delete notification:', error.message)
-            return
+            console.error('[NotificationBell] Could not delete notification:', error.message)
         }
-
-        setNotifications(prev => prev.filter(n => n.id !== notificationId))
-        setUnreadCount(prev => {
-            const notification = notifications.find(n => n.id === notificationId)
-            return notification && !notification.read ? prev - 1 : prev
-        })
     }
 
     return (
@@ -214,7 +223,7 @@ export function NotificationBell() {
                                                     variant="ghost"
                                                     size="icon"
                                                     className="h-8 w-8 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                                                    onClick={() => markAsRead(notification.id)}
+                                                    onClick={(e) => markAsRead(e, notification.id)}
                                                 >
                                                     <Check className="h-4 w-4" />
                                                 </Button>
@@ -223,7 +232,7 @@ export function NotificationBell() {
                                                 variant="ghost"
                                                 size="icon"
                                                 className="h-8 w-8 rounded-lg text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                                                onClick={() => deleteNotification(notification.id)}
+                                                onClick={(e) => deleteNotification(e, notification.id)}
                                             >
                                                 <X className="h-4 w-4" />
                                             </Button>
@@ -235,7 +244,7 @@ export function NotificationBell() {
                                             href={notification.type === 'like' ? `/dashboard/research/${notification.reference_id}` : `/dashboard/user/${notification.reference_id}`}
                                             className="block mt-2 ml-4"
                                             onClick={() => {
-                                                markAsRead(notification.id)
+                                                markAsRead(null, notification.id)
                                                 setOpen(false)
                                             }}
                                         >

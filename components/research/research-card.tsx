@@ -14,12 +14,14 @@ const statusConfig: any = {
   rechazado: { label: "Rechazado", variant: "destructive", class: "bg-red-500/20 text-red-700 border-red-300/50" },
 }
 
+
 interface ResearchCardProps {
   research: any
   showStatus?: boolean
+  isOwner?: boolean
 }
 
-export function ResearchCard({ research, showStatus = false }: ResearchCardProps) {
+export function ResearchCard({ research, showStatus = false, isOwner = false }: ResearchCardProps) {
   const statusKey = research.status?.toLowerCase() || 'en_revision'
   const status = statusConfig[statusKey] || statusConfig.en_revision
 
@@ -52,9 +54,16 @@ export function ResearchCard({ research, showStatus = false }: ResearchCardProps
               </div>
 
               {showStatus && (
-                <Badge variant={status.variant} className={`shrink-0 h-8 px-3 font-bold shadow-md border ${status.class}`}>
-                  {status.label}
-                </Badge>
+                <div className="flex flex-col gap-2 items-end">
+                  <Badge variant={status.variant} className={`shrink-0 h-8 px-3 font-bold shadow-md border ${status.class}`}>
+                    {status.label}
+                  </Badge>
+                  {isOwner && !research.file_url && (
+                    <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-50 font-bold text-[10px] uppercase">
+                      Falta Archivo
+                    </Badge>
+                  )}
+                </div>
               )}
             </div>
 
@@ -121,7 +130,7 @@ export function ResearchCard({ research, showStatus = false }: ResearchCardProps
                   Ver Detalles <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
               </Button>
-              {research.file_url && (
+              {research.file_url ? (
                 <Button
                   variant="outline"
                   size="sm"
@@ -132,7 +141,18 @@ export function ResearchCard({ research, showStatus = false }: ResearchCardProps
                     <ExternalLink className="h-4 w-4" /> PDF
                   </a>
                 </Button>
-              )}
+              ) : (isOwner && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  asChild
+                  className="gap-2 font-bold bg-amber-100 hover:bg-amber-200 text-amber-700 border-amber-200 rounded-lg"
+                >
+                  <Link href={`/dashboard/research/${research.id}`}>
+                    <FileText className="h-4 w-4" /> Subir Archivo
+                  </Link>
+                </Button>
+              ))}
             </div>
           </div>
         </div>

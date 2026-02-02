@@ -144,9 +144,9 @@ export default function ProfilePage() {
         // Get Social Stats
         // Usamos supabaseQuery para cada llamada individual dentro de Promise.all
         // para aprovechar los retries automáticos en paralelo
-        const [followersRes, followingRes, investigationsRes] = await Promise.all([
-          supabaseQuery(() => supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id)),
-          supabaseQuery(() => supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id)),
+        const [investigationsRes] = await Promise.all([
+          // supabaseQuery(() => supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id)),
+          // supabaseQuery(() => supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id)),
           supabaseQuery(() => supabase.from('investigations').select('id').eq('owner_id', user.id))
         ])
 
@@ -162,8 +162,8 @@ export default function ProfilePage() {
         }
 
         setSocialStats({
-          followers: followersRes.count || 0,
-          following: followingRes.count || 0,
+          followers: 0,
+          following: 0,
           likes: totalLikes
         })
 
@@ -387,7 +387,8 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              <div className="grid grid-cols-3 gap-2 w-full pt-4">
+              <div className="grid grid-cols-1 gap-2 w-full pt-4">
+                {/* 
                 <div className="text-center p-2 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors cursor-default group/stat">
                   <p className="text-lg font-black group-hover/stat:scale-110 transition-transform duration-300">{socialStats.followers}</p>
                   <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Seguidores</p>
@@ -396,6 +397,7 @@ export default function ProfilePage() {
                   <p className="text-lg font-black group-hover/stat:scale-110 transition-transform duration-300">{socialStats.following}</p>
                   <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Seguidos</p>
                 </div>
+                */}
                 <div className="text-center p-2 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors cursor-default group/stat">
                   <p className="text-lg font-black text-pink-500 group-hover/stat:scale-110 transition-transform duration-300">{socialStats.likes}</p>
                   <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-wider">Me Gusta</p>

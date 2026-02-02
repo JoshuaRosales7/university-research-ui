@@ -115,17 +115,17 @@ export default function PublicProfilePage() {
                 await supabase.from('follows').insert({ follower_id: currentUser.id, following_id: userId });
                 setStats(prev => ({ ...prev, followers: prev.followers + 1 }));
 
-                // Send Notification
-                if (userId !== currentUser.id) {
-                    await supabase.from('notifications').insert({
-                        user_id: userId,
-                        actor_id: currentUser.id,
-                        type: 'follow',
-                        title: 'Nuevo Seguidor',
-                        message: `${currentUser.fullName || 'Un usuario'} ha comenzado a seguirte.`,
-                        reference_id: currentUser.id // Link to follower profile
-                    });
-                }
+                // Send Notification - DISABLED
+                // if (userId !== currentUser.id) {
+                //     await supabase.from('notifications').insert({
+                //         user_id: userId,
+                //         actor_id: currentUser.id,
+                //         type: 'follow',
+                //         title: 'Nuevo Seguidor',
+                //         message: `${currentUser.fullName || 'Un usuario'} ha comenzado a seguirte.`,
+                //         reference_id: currentUser.id // Link to follower profile
+                //     });
+                // }
             }
             setIsFollowing(!isFollowing);
         } catch (error) {
@@ -176,18 +176,9 @@ export default function PublicProfilePage() {
                     </p>
                 </div>
                 <div className="flex gap-2">
-                    {isMe ? (
+                    {isMe && (
                         <Button asChild className="rounded-xl font-bold gap-2">
                             <Link href="/dashboard/profile">Editar mi Perfil</Link>
-                        </Button>
-                    ) : (
-                        <Button
-                            onClick={handleFollowToggle}
-                            disabled={followLoading}
-                            variant={isFollowing ? "outline" : "default"}
-                            className={cn("rounded-xl font-bold gap-2 min-w-[120px]", isFollowing && "border-destructive/30 hover:bg-destructive/10 hover:text-destructive hover:border-destructive")}
-                        >
-                            {followLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : isFollowing ? "Dejar de seguir" : "Seguir"}
                         </Button>
                     )}
                 </div>
@@ -215,8 +206,8 @@ export default function PublicProfilePage() {
                                 </div>
                             </div>
 
-                            {/* Social Stats */}
-                            <div className="grid grid-cols-2 gap-4 w-full pt-2">
+                            {/* Social Stats - DISABLED */}
+                            <div className="grid grid-cols-2 gap-4 w-full pt-2 hidden">
                                 <div className="text-center p-2 rounded-xl bg-muted/30 hover:bg-muted/50 transition-colors">
                                     <p className="text-xl font-black">{stats.followers}</p>
                                     <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Seguidores</p>

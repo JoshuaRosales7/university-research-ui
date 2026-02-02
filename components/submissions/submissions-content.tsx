@@ -52,12 +52,14 @@ export function SubmissionsContent() {
           <h1 className="text-4xl font-black tracking-tighter text-foreground">Mis Envíos</h1>
           <p className="text-muted-foreground font-medium text-lg">Gestiona y consulta el estado de tus investigaciones institucionales.</p>
         </div>
-        <Button asChild size="lg" className="h-14 px-8 shadow-2xl shadow-primary/20 transition-all font-black uppercase tracking-widest rounded-2xl active:scale-95">
-          <Link href="/dashboard/upload" className="gap-3">
-            <Plus className="h-6 w-6" />
-            Nueva Investigación
-          </Link>
-        </Button>
+        {user?.role === 'admin' && (
+          <Button asChild size="lg" className="h-14 px-8 shadow-2xl shadow-primary/20 transition-all font-black uppercase tracking-widest rounded-2xl active:scale-95">
+            <Link href="/dashboard/upload" className="gap-3">
+              <Plus className="h-6 w-6" />
+              Nueva Investigación
+            </Link>
+          </Button>
+        )}
       </div>
 
       <div className="flex flex-col gap-4 p-2 bg-card/60 backdrop-blur-md rounded-3xl ring-1 ring-border/50 md:flex-row md:items-center max-w-2xl shadow-lg">
@@ -84,7 +86,7 @@ export function SubmissionsContent() {
         <TabsContent value="all" className="mt-8 space-y-6">
           {filterByStatus(null).length > 0 ? (
             filterByStatus(null).map((research) => (
-              <ResearchCard key={research.id} research={research} showStatus />
+              <ResearchCard key={research.id} research={research} showStatus isOwner={true} />
             ))
           ) : (
             <div className="text-center py-20 border-2 border-dashed rounded-3xl bg-muted/5">
@@ -95,19 +97,19 @@ export function SubmissionsContent() {
 
         <TabsContent value="en_revision" className="mt-8 space-y-6">
           {filterByStatus("en_revision").map((research) => (
-            <ResearchCard key={research.id} research={research} showStatus />
+            <ResearchCard key={research.id} research={research} showStatus isOwner={true} />
           ))}
         </TabsContent>
 
         <TabsContent value="aprobado" className="mt-8 space-y-6">
           {filterByStatus("aprobado").map((research) => (
-            <ResearchCard key={research.id} research={research} showStatus />
+            <ResearchCard key={research.id} research={research} showStatus isOwner={true} />
           ))}
         </TabsContent>
 
         <TabsContent value="rechazado" className="mt-8 space-y-6">
           {filterByStatus("rechazado").map((research) => (
-            <ResearchCard key={research.id} research={research} showStatus />
+            <ResearchCard key={research.id} research={research} showStatus isOwner={true} />
           ))}
         </TabsContent>
       </Tabs>

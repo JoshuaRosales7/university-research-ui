@@ -25,7 +25,8 @@ import {
   Clock,
   CheckCircle,
   BarChart3,
-  Hash
+  Hash,
+  Upload
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -42,7 +43,19 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { CitationModal } from "@/components/research/citation-modal"
+import { useToast } from "@/components/ui/use-toast"
 
 const statusConfig: any = {
   borrador: { label: "Borrador", class: "bg-muted text-muted-foreground border-0", icon: FileText },
@@ -56,7 +69,12 @@ export default function ResearchDetailPage({ params }: { params: Promise<{ id: s
   const { data: research, isLoading, error } = useItem(unwrappedParams.id)
   const { user } = useAuth()
   const router = useRouter()
+  const { toast } = useToast()
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
+  const [fileToUpload, setFileToUpload] = useState<File | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [isRequestingFile, setIsRequestingFile] = useState(false)
 
   // Likes State
   const [likes, setLikes] = useState(0)
@@ -165,6 +183,79 @@ export default function ResearchDetailPage({ params }: { params: Promise<{ id: s
     }
   }
 
+  const handleRequestFile = async () => {
+    if (!user) {
+      toast({ title: "Inicia sesión", description: "Debes iniciar sesión para solicitar archivos.", variant: "destructive" })
+      return
+    }
+    setIsRequestingFile(true)
+    try {
+      await supabase.from('notifications').insert({
+        user_id: research.owner_id,
+        actor_id: user.id,
+        type: 'system',
+        title: 'Solicitud de Archivo',
+        message: `${user.fullName || 'Un usuario'} está interesado en tu investigación "${research.title}" y ha solicitado el archivo.`,
+        reference_id: research.id
+      })
+      toast({
+        title: "Solicitud enviada",
+        description: "Se ha notificado al autor de tu interés."
+      })
+    } catch (e) {
+      console.error("Error requesting file:", e)
+      toast({ title: "Error", description: "No se pudo enviar la solicitud.", variant: "destructive" })
+    } finally {
+      setIsRequestingFile(false)
+    }
+  }
+
+  const handleUploadFile = async () => {
+    if (!fileToUpload || !user) return
+    setIsUploading(true)
+    try {
+      const fileExt = fileToUpload.name.split('.').pop()?.toLowerCase() || 'pdf'
+      const timestamp = Date.now()
+      const randomId = Math.random().toString(36).substring(2, 8)
+      const baseName = fileToUpload.name
+        .replace(/\.[^/.]+$/, '')
+        .replace(/[^a-zA-Z0-9]/g, '-')
+        .replace(/-+/g, '-')
+        .substring(0, 50)
+
+      const safeFileName = `${timestamp}-${randomId}-${baseName}.${fileExt}`
+      const filePath = `${user.id}/${safeFileName}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('investigations')
+        .upload(filePath, fileToUpload, {
+          cacheControl: '3600',
+          upsert: false
+        })
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('investigations')
+        .getPublicUrl(filePath)
+
+      const { error: dbError } = await supabase
+        .from('investigations')
+        .update({ file_url: publicUrl })
+        .eq('id', unwrappedParams.id)
+
+      if (dbError) throw dbError
+
+      window.location.reload()
+    } catch (error) {
+      console.error("Error al subir archivo:", error)
+      alert("Error al subir el archivo. Inténtalo de nuevo.")
+    } finally {
+      setIsUploading(false)
+      setIsUploadModalOpen(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
@@ -238,18 +329,18 @@ export default function ResearchDetailPage({ params }: { params: Promise<{ id: s
 
             <div className="flex flex-wrap items-center gap-6 text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
-                <Link href={`/dashboard/user/${research.owner_id}`} className="flex items-center gap-2 group/author hover:opacity-80 transition-opacity">
+                <div className="flex items-center gap-2">
                   <div className="flex -space-x-2">
                     {authors.map((_: any, i: number) => (
-                      <div key={i} className="h-8 w-8 rounded-full bg-primary/10 border-2 border-background flex items-center justify-center text-[10px] font-bold text-primary ring-2 ring-transparent group-hover/author:ring-primary/20 transition-all">
+                      <div key={i} className="h-8 w-8 rounded-full bg-primary/10 border-2 border-background flex items-center justify-center text-[10px] font-bold text-primary ring-2 ring-transparent transition-all">
                         {authors[i]?.[0]}
                       </div>
                     ))}
                   </div>
-                  <span className="font-bold text-foreground group-hover/author:text-primary transition-colors underline decoration-dotted underline-offset-4 decoration-primary/30">
+                  <span className="font-bold text-foreground">
                     {authors.join(", ")}
                   </span>
-                </Link>
+                </div>
               </div>
               <div className="h-1 w-1 rounded-full bg-muted-foreground/30" />
               <div className="flex items-center gap-2">
@@ -261,13 +352,24 @@ export default function ResearchDetailPage({ params }: { params: Promise<{ id: s
 
           {/* Action Buttons */}
           <div className="flex flex-wrap gap-3 shrink-0 lg:pt-2">
-            {research.file_url && (
+            {research.file_url ? (
               <Button className="font-bold h-11 px-6 gap-2 shadow-lg shadow-primary/20 hover:scale-105 transition-all rounded-xl" asChild>
                 <a href={research.file_url} target="_blank" rel="noopener noreferrer">
                   <Download className="h-4 w-4" /> Descargar PDF
                 </a>
               </Button>
-            )}
+            ) : (isOwner ? (
+              <Button
+                className="font-bold h-11 px-6 gap-2 shadow-lg shadow-primary/20 hover:scale-105 transition-all rounded-xl bg-primary text-primary-foreground"
+                onClick={() => setIsUploadModalOpen(true)}
+              >
+                <Upload className="h-4 w-4" /> Subir Documento
+              </Button>
+            ) : (
+              <Button disabled className="font-bold h-11 px-6 gap-2 rounded-xl opacity-50 cursor-not-allowed">
+                <FileText className="h-4 w-4" /> Solo Metadatos
+              </Button>
+            ))}
 
             <Button
               onClick={handleLike}
@@ -416,7 +518,7 @@ export default function ResearchDetailPage({ params }: { params: Promise<{ id: s
                   <MetaRow icon={ShieldCheck} label="Licencia" value="CC BY-NC-SA 4.0" />
                 </div>
 
-                {research.file_url && (
+                {research.file_url ? (
                   <div className="p-6 bg-muted/10">
                     <Button className="w-full font-bold h-12 rounded-xl shadow-md" asChild>
                       <a href={research.file_url} target="_blank" rel="noopener noreferrer">
@@ -424,12 +526,63 @@ export default function ResearchDetailPage({ params }: { params: Promise<{ id: s
                       </a>
                     </Button>
                   </div>
-                )}
+                ) : isOwner ? (
+                  <div className="p-6 bg-amber-50/50 border-t border-amber-100">
+                    <div className="text-center space-y-3">
+                      <div className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-600">
+                        <Upload className="h-5 w-5" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs font-black uppercase tracking-widest text-amber-700">Falta Archivo PDF</p>
+                        <p className="text-[10px] text-muted-foreground font-medium">Sube tu documento para completar el registro.</p>
+                      </div>
+                      <Button
+                        size="sm"
+                        className="w-full font-bold bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/20"
+                        onClick={() => setIsUploadModalOpen(true)}
+                      >
+                        Subir Ahora
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </CardContent>
             </Card>
           </div>
         </div>
       </div>
+      <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Subir Documento de Investigación</DialogTitle>
+            <DialogDescription>
+              Carga el archivo PDF completo de tu investigación.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="file">Archivo PDF</Label>
+              <Input
+                id="file"
+                type="file"
+                accept=".pdf"
+                onChange={(e) => setFileToUpload(e.target.files?.[0] || null)}
+              />
+            </div>
+          </div>
+          <DialogFooter className="sm:justify-start">
+            <div className="flex w-full justify-end gap-2">
+              <Button type="button" variant="secondary" onClick={() => setIsUploadModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="button" onClick={handleUploadFile} disabled={!fileToUpload || isUploading}>
+                {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                Subir Archivo
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

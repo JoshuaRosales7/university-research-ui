@@ -4,6 +4,7 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { Check, ChevronRight, ChevronLeft, Upload, X, FileText, AlertCircle, Loader2, ShieldCheck, Info, Lock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -56,6 +57,25 @@ interface FormData {
 export default function UploadPage() {
   const router = useRouter()
   const { user } = useAuth()
+
+  if (user && user.role !== 'admin') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4 animate-in fade-in zoom-in duration-300">
+        <div className="bg-muted/30 p-8 rounded-full ring-1 ring-border/50">
+          <Lock className="h-12 w-12 text-muted-foreground" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-2xl font-black tracking-tight">Acceso Restringido</h1>
+          <p className="text-muted-foreground max-w-md font-medium">
+            La carga de nuevas investigaciones está habilitada únicamente para administradores en este momento.
+          </p>
+        </div>
+        <Button asChild variant="default" className="font-bold rounded-xl mt-4">
+          <Link href="/dashboard">Volver al Dashboard</Link>
+        </Button>
+      </div>
+    )
+  }
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState<FormData>({
     facultyId: "ing",
@@ -103,101 +123,107 @@ export default function UploadPage() {
   }
 
   const handleSubmit = async () => {
-    if (!user || !formData.file) return
+    if (!user) return;
     setIsSubmitting(true)
     setSubmitError("")
     setUploadProgress(20)
 
     try {
-      // Sanitización agresiva del nombre de archivo
-      const fileExt = formData.file.name.split('.').pop()?.toLowerCase() || 'pdf'
-      const timestamp = Date.now()
-      const randomId = Math.random().toString(36).substring(2, 8)
+      let publicUrl = null;
 
-      // Nombre limpio sin caracteres especiales
-      const baseName = formData.file.name
-        .replace(/\.[^/.]+$/, '') // Remover extensión
-        .replace(/[^a-zA-Z0-9]/g, '-') // Solo letras, números y guiones
-        .replace(/-+/g, '-') // Normalizar múltiples guiones
-        .substring(0, 50) // Limitar longitud
+      if (formData.file) {
+        // Sanitización agresiva del nombre de archivo
+        const fileExt = formData.file.name.split('.').pop()?.toLowerCase() || 'pdf'
+        const timestamp = Date.now()
+        const randomId = Math.random().toString(36).substring(2, 8)
 
-      const safeFileName = `${timestamp}-${randomId}-${baseName}.${fileExt}`
-      const filePath = `${user.id}/${safeFileName}`
+        // Nombre limpio sin caracteres especiales
+        const baseName = formData.file.name
+          .replace(/\.[^/.]+$/, '') // Remover extensión
+          .replace(/[^a-zA-Z0-9]/g, '-') // Solo letras, números y guiones
+          .replace(/-+/g, '-') // Normalizar múltiples guiones
+          .substring(0, 50) // Limitar longitud
 
-      // Enhanced retry logic with exponential backoff
-      let uploadError: any = null
-      let uploadAttempts = 0
-      const maxAttempts = 3
-      const baseDelay = 1000 // 1 second
+        const safeFileName = `${timestamp}-${randomId}-${baseName}.${fileExt}`
+        const filePath = `${user.id}/${safeFileName}`
 
-      while (uploadAttempts < maxAttempts) {
-        try {
-          console.log(`[Upload] Attempt ${uploadAttempts + 1}/${maxAttempts}`)
+        // Enhanced retry logic with exponential backoff
+        let uploadError: any = null
+        let uploadAttempts = 0
+        const maxAttempts = 3
+        const baseDelay = 1000 // 1 second
 
-          // Use the file object directly instead of wrapping in a new Blob
-          // This prevents potential issues with large file handling in memory
-          const fileToUpload = formData.file
+        while (uploadAttempts < maxAttempts) {
+          try {
+            console.log(`[Upload] Attempt ${uploadAttempts + 1}/${maxAttempts}`)
 
-          const { error } = await supabase.storage
-            .from('investigations')
-            .upload(filePath, fileToUpload, {
-              cacheControl: '3600',
-              upsert: false,
-            })
+            // Use the file object directly instead of wrapping in a new Blob
+            // This prevents potential issues with large file handling in memory
+            const fileToUpload = formData.file
 
-          if (error) {
-            uploadError = error
+            const { error } = await supabase.storage
+              .from('investigations')
+              .upload(filePath, fileToUpload, {
+                cacheControl: '3600',
+                upsert: false,
+              })
 
-            // Check if it's an abort error
-            const isAbortError = error.message.includes('aborted') ||
-              error.message.includes('AbortError') ||
-              error.name === 'AbortError'
+            if (error) {
+              uploadError = error
+
+              // Check if it's an abort error
+              const isAbortError = error.message.includes('aborted') ||
+                error.message.includes('AbortError') ||
+                error.name === 'AbortError'
+
+              if (isAbortError && uploadAttempts < maxAttempts - 1) {
+                uploadAttempts++
+                const delay = baseDelay * Math.pow(2, uploadAttempts - 1) // Exponential backoff
+                console.log(`[Upload] Reintentando en ${delay}ms (${uploadAttempts}/${maxAttempts})...`)
+                await new Promise(resolve => setTimeout(resolve, delay))
+                continue
+              }
+
+              // If it's not an abort error or we've exhausted retries, throw
+              throw error
+            }
+
+            // Upload exitoso
+            uploadError = null
+            console.log('[Upload] Exitoso')
+            break
+          } catch (err: any) {
+            uploadError = err
+
+            const isAbortError = err.message?.includes('aborted') ||
+              err.message?.includes('AbortError') ||
+              err.name === 'AbortError'
 
             if (isAbortError && uploadAttempts < maxAttempts - 1) {
               uploadAttempts++
-              const delay = baseDelay * Math.pow(2, uploadAttempts - 1) // Exponential backoff
+              const delay = baseDelay * Math.pow(2, uploadAttempts - 1)
               console.log(`[Upload] Reintentando en ${delay}ms (${uploadAttempts}/${maxAttempts})...`)
               await new Promise(resolve => setTimeout(resolve, delay))
               continue
             }
 
-            // If it's not an abort error or we've exhausted retries, throw
-            throw error
+            // If we've exhausted retries or it's a different error, throw
+            throw err
           }
-
-          // Upload exitoso
-          uploadError = null
-          console.log('[Upload] Exitoso')
-          break
-        } catch (err: any) {
-          uploadError = err
-
-          const isAbortError = err.message?.includes('aborted') ||
-            err.message?.includes('AbortError') ||
-            err.name === 'AbortError'
-
-          if (isAbortError && uploadAttempts < maxAttempts - 1) {
-            uploadAttempts++
-            const delay = baseDelay * Math.pow(2, uploadAttempts - 1)
-            console.log(`[Upload] Reintentando en ${delay}ms (${uploadAttempts}/${maxAttempts})...`)
-            await new Promise(resolve => setTimeout(resolve, delay))
-            continue
-          }
-
-          // If we've exhausted retries or it's a different error, throw
-          throw err
         }
-      }
 
-      if (uploadError) {
-        console.error('[Upload Error]:', uploadError)
-        throw new Error(`Error al subir archivo después de ${maxAttempts} intentos: ${uploadError.message}`)
-      }
+        if (uploadError) {
+          console.error('[Upload Error]:', uploadError)
+          throw new Error(`Error al subir archivo después de ${maxAttempts} intentos: ${uploadError.message}`)
+        }
 
-      setUploadProgress(70)
-      const { data: { publicUrl } } = supabase.storage
-        .from('investigations')
-        .getPublicUrl(filePath)
+        setUploadProgress(70)
+        const { data: { publicUrl: url } } = supabase.storage
+          .from('investigations')
+          .getPublicUrl(filePath)
+
+        publicUrl = url;
+      }
 
       const investigationData = {
         owner_id: user.id,
@@ -248,7 +274,7 @@ export default function UploadPage() {
   const isStepValid = (step: number) => {
     if (step === 1) return !!formData.facultyId && !!formData.career
     if (step === 2) return !!formData.title && !!formData.abstract && formData.authors.some(a => a.trim())
-    if (step === 3) return !!formData.file
+    if (step === 3) return true // File is optional
     return true
   }
 
@@ -406,6 +432,13 @@ export default function UploadPage() {
 
           {currentStep === 3 && (
             <div className="space-y-8 animate-in slide-in-from-bottom-4 duration-500">
+              <div className="flex justify-between items-center bg-blue-50/50 p-4 rounded-xl mb-4 border border-blue-100">
+                <div className="flex gap-2 items-center">
+                  <Info className="h-4 w-4 text-blue-600" />
+                  <p className="text-sm text-blue-800 font-medium">El archivo es opcional en esta etapa.</p>
+                </div>
+                {/* <Badge variant="secondary">Opcional</Badge> */}
+              </div>
               <div className={cn(
                 "relative border-4 border-dashed rounded-[3rem] p-24 text-center transition-all duration-700",
                 formData.file ? "border-green-500 bg-green-500/5 shadow-2xl shadow-green-500/10" : "border-border/30 bg-muted/5 hover:border-primary/40"
@@ -428,10 +461,13 @@ export default function UploadPage() {
                     </div>
                     <div className="space-y-2">
                       <p className="font-black text-3xl tracking-tighter">Arrastra tu PDF</p>
-                      <p className="text-muted-foreground font-medium">Límite de tamaño sugerido: 25MB</p>
+                      <p className="text-muted-foreground font-medium">Límite de tamaño sugerido: 25MB (Opcional)</p>
                     </div>
-                    <Button className="font-black px-12 h-14 rounded-2xl shadow-2xl shadow-primary/20">Seleccionar Manuscrito</Button>
-                    <input type="file" accept=".pdf" onChange={handleFileSelect} className="absolute inset-0 opacity-0 cursor-pointer" />
+                    <div className="flex flex-col gap-3 items-center">
+                      <Button className="font-black px-12 h-14 rounded-2xl shadow-2xl shadow-primary/20 relative z-20 pointer-events-none">Seleccionar Manuscrito</Button>
+                      <p className="text-xs text-muted-foreground font-bold uppercase tracking-wider">o continúa sin archivo</p>
+                    </div>
+                    <input type="file" accept=".pdf" onChange={handleFileSelect} className="absolute inset-0 opacity-0 cursor-pointer z-10" />
                   </div>
                 )}
               </div>
@@ -471,8 +507,10 @@ export default function UploadPage() {
                     <FileText className="h-7 w-7 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-base font-black truncate">{formData.file?.name}</p>
-                    <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Listo para auditoría digital</p>
+                    <p className="text-base font-black truncate">{formData.file?.name || "Sin archivo adjunto"}</p>
+                    <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
+                      {formData.file ? "Listo para auditoría digital" : "Registro de Metadatos"}
+                    </p>
                   </div>
                   <Check className="h-8 w-8 text-emerald-500" />
                 </div>
