@@ -37,6 +37,13 @@ University Research UI es una plataforma integral diseñada para la Universidad 
     - **Admins**: Gestión total de usuarios y sistema.
 - **Privacidad**: Opción de perfiles privados y seguridad a nivel de fila (RLS) en la base de datos para proteger borradores y datos sensibles.
 
+### 6. 🌐 Integraciones y Servicios Académicos
+La plataforma está preparada para el ecosistema científico real mediante integraciones estándar:
+- **Identidad Académica (ORCID)**: Vinculación de perfiles con ORCID iD para garantizar la correcta atribución de autoría.
+- **Identificadores Persistentes (DOI)**: Asignación automática de DOIs (vía DataCite simulation) para asegurar que las investigaciones sean citables permanentemente.
+- **Integridad Académica**: Pipeline preparado para verificaciones de similitud con APIs como **Turnitin** o **Unicheck**.
+- **SEO Académico**: Metadatos optimizados (Open Graph, JSON-LD) para que las tesis sean indexables por Google Scholar y otros buscadores científicos.
+
 ---
 
 ## 🛠️ Stack Tecnológico Renovado
