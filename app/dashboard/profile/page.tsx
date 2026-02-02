@@ -66,7 +66,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseQuery } from "@/lib/supabase"
 import { toast } from "sonner"
 
 const roleConfigs: any = {
@@ -133,17 +133,21 @@ export default function ProfilePage() {
         const { data: authData } = await supabase.auth.getUser()
 
         // Get advanced profile data (including is_public)
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('is_public')
-          .eq('id', user.id)
-          .single()
+        const { data: profileData } = await supabaseQuery(() =>
+          supabase
+            .from('profiles')
+            .select('is_public')
+            .eq('id', user.id)
+            .single()
+        )
 
         // Get Social Stats
+        // Usamos supabaseQuery para cada llamada individual dentro de Promise.all
+        // para aprovechar los retries automáticos en paralelo
         const [followersRes, followingRes, investigationsRes] = await Promise.all([
-          supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id),
-          supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id),
-          supabase.from('investigations').select('id').eq('owner_id', user.id)
+          supabaseQuery(() => supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', user.id)),
+          supabaseQuery(() => supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', user.id)),
+          supabaseQuery(() => supabase.from('investigations').select('id').eq('owner_id', user.id))
         ])
 
         // Calculate total likes for user's investigations

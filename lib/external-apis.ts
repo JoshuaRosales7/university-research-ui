@@ -31,15 +31,30 @@ interface OpenAlexResponse {
     }
 }
 
-export async function searchOpenAlex(query: string, page = 1, perPage = 10): Promise<OpenAlexResponse> {
+export async function searchOpenAlex(query: string, page = 1, years: string[] = [], perPage = 10): Promise<OpenAlexResponse> {
     try {
         let url = `https://api.openalex.org/works?page=${page}&per_page=${perPage}&select=id,display_name,publication_date,doi,primary_location,authorships,concepts,cited_by_count`
 
+        const filters = []
+
+        // Add Year filter if present
+        if (years && years.length > 0) {
+            // OpenAlex supports ranges or pipe-separated values for filters usually, 
+            // but commonly filter=publication_year:2023|2022
+            filters.push(`publication_year:${years.join('|')}`)
+        }
+
+        // Add Query if present
         if (query && query.trim() !== "") {
             url += `&search=${encodeURIComponent(query)}`
         } else {
-            // Default: Most cited/relevant recent works if no query
-            url += `&sort=cited_by_count:desc`
+            // Default sort if no query
+            if (filters.length === 0) url += `&sort=cited_by_count:desc`
+        }
+
+        // Append filters to URL
+        if (filters.length > 0) {
+            url += `&filter=${filters.join(',')}`
         }
 
         const response = await fetch(url)

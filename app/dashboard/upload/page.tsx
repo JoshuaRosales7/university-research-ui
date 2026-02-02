@@ -134,15 +134,15 @@ export default function UploadPage() {
         try {
           console.log(`[Upload] Attempt ${uploadAttempts + 1}/${maxAttempts}`)
 
-          // Create a fresh file blob for each attempt to avoid stale references
-          const fileBlob = new Blob([formData.file], { type: 'application/pdf' })
+          // Use the file object directly instead of wrapping in a new Blob
+          // This prevents potential issues with large file handling in memory
+          const fileToUpload = formData.file
 
           const { error } = await supabase.storage
             .from('investigations')
-            .upload(filePath, fileBlob, {
+            .upload(filePath, fileToUpload, {
               cacheControl: '3600',
               upsert: false,
-              contentType: 'application/pdf',
             })
 
           if (error) {

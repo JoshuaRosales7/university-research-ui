@@ -36,7 +36,7 @@ export function ExploreContent() {
   const [selectedYears, setSelectedYears] = useState<string[]>([])
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
 
-  // Data Options (In a real app, these might come from an API)
+  // Data Options
   const faculties = [
     "Facultad de Ingeniería",
     "Facultad de Ciencias",
@@ -62,8 +62,7 @@ export function ExploreContent() {
     "Periodismo",
   ]
 
-  // Generate last 10 years
-  const currentYear = new Date().getFullYear() + 1 // Including next year for consistency with mock data
+  const currentYear = new Date().getFullYear() + 1
   const years = Array.from({ length: 11 }, (_, i) => (currentYear - i).toString())
 
   const workTypes = [
@@ -79,23 +78,29 @@ export function ExploreContent() {
     setPage(0)
   }, [searchQuery, selectedFaculties, selectedCareers, selectedYears, selectedTypes, source])
 
-  // Internal Search
-  const { data: localData, isLoading: isLoadingLocal } = useSearch({
-    query: searchQuery,
-    page: page,
-    size: pageSize,
-    filters: {
-      faculty: selectedFaculties,
-      career: selectedCareers,
-      year: selectedYears,
-      work_type: selectedTypes
-    }
-  })
+  // Internal Search (Conditional)
+  const { data: localData, isLoading: isLoadingLocal } = useSearch(
+    source === "local"
+      ? {
+        query: searchQuery,
+        page: page,
+        size: pageSize,
+        filters: {
+          faculty: selectedFaculties,
+          career: selectedCareers,
+          year: selectedYears,
+          work_type: selectedTypes,
+        },
+      }
+      : null,
+  )
 
-  // External Search
+  // External Search (Conditional)
+  const shouldFetchGlobal = source === "global"
   const { data: externalData, isLoading: isLoadingExternal } = useOpenAlexSearch(
-    source === "global" ? searchQuery : "",
-    page + 1
+    shouldFetchGlobal ? searchQuery : "",
+    page + 1,
+    shouldFetchGlobal ? selectedYears : []
   )
 
   const isLoading = source === "global" ? isLoadingExternal : isLoadingLocal
@@ -177,7 +182,7 @@ export function ExploreContent() {
       <div className="flex items-center justify-between px-1">
         <h3 className="font-black text-lg tracking-tight flex items-center gap-2">
           <Filter className="h-4 w-4 text-primary fill-primary/20" />
-          Filtros
+          Filtros {source === "global" && "(Limitado)"}
         </h3>
         {activeFiltersCount > 0 && (
           <Button
@@ -191,22 +196,36 @@ export function ExploreContent() {
         )}
       </div>
 
+      {source === "global" && (
+        <div className="bg-blue-50/50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-900/50 text-xs text-blue-700 dark:text-blue-300">
+          <p className="flex items-start gap-2">
+            <Globe className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>En modo Global, solo puedes filtrar por Año de publicación.</span>
+          </p>
+        </div>
+      )}
+
       <ScrollArea className="flex-1 -mx-4 px-4">
-        <Accordion type="multiple" defaultValue={["Facultad", "Tipo"]} className="space-y-1">
-          <FilterSection
-            title="Facultad"
-            icon={School}
-            items={faculties}
-            selected={selectedFaculties}
-            onToggle={(i) => toggleFilter(i, selectedFaculties, setSelectedFaculties)}
-          />
-          <FilterSection
-            title="Carrera"
-            icon={GraduationCap}
-            items={careers}
-            selected={selectedCareers}
-            onToggle={(i) => toggleFilter(i, selectedCareers, setSelectedCareers)}
-          />
+        <Accordion type="multiple" defaultValue={source === "local" ? ["Facultad", "Tipo", "Año"] : ["Año"]} className="space-y-1">
+          {source === "local" && (
+            <>
+              <FilterSection
+                title="Facultad"
+                icon={School}
+                items={faculties}
+                selected={selectedFaculties}
+                onToggle={(i) => toggleFilter(i, selectedFaculties, setSelectedFaculties)}
+              />
+              <FilterSection
+                title="Carrera"
+                icon={GraduationCap}
+                items={careers}
+                selected={selectedCareers}
+                onToggle={(i) => toggleFilter(i, selectedCareers, setSelectedCareers)}
+              />
+            </>
+          )}
+
           <FilterSection
             title="Año"
             icon={Calendar}
@@ -214,13 +233,16 @@ export function ExploreContent() {
             selected={selectedYears}
             onToggle={(i) => toggleFilter(i, selectedYears, setSelectedYears)}
           />
-          <FilterSection
-            title="Tipo"
-            icon={BookOpen}
-            items={workTypes}
-            selected={selectedTypes}
-            onToggle={(i) => toggleFilter(i, selectedTypes, setSelectedTypes)}
-          />
+
+          {source === "local" && (
+            <FilterSection
+              title="Tipo"
+              icon={BookOpen}
+              items={workTypes}
+              selected={selectedTypes}
+              onToggle={(i) => toggleFilter(i, selectedTypes, setSelectedTypes)}
+            />
+          )}
         </Accordion>
       </ScrollArea>
     </div>
@@ -289,11 +311,9 @@ export function ExploreContent() {
                   )}
                 </Button>
               </SheetTrigger>
-              {source === "local" && (
-                <SheetContent side="left" className="w-[300px] sm:w-[350px]">
-                  <FilterContent />
-                </SheetContent>
-              )}
+              <SheetContent side="left" className="w-[300px] sm:w-[350px]">
+                <FilterContent />
+              </SheetContent>
             </Sheet>
 
             {source === "local" && (
@@ -334,21 +354,14 @@ export function ExploreContent() {
       <div className="flex gap-8 items-start">
         {/* Desktop Filters Sidebar */}
         <aside className="hidden lg:block w-72 shrink-0 sticky top-24 max-h-[calc(100vh-8rem)]">
-          {source === "local" ? (
-            <Card className="h-full border-border/50 bg-card/50 backdrop-blur-sm shadow-sm">
-              <CardContent className="p-6 h-full">
-                <FilterContent />
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="h-full border-border/50 bg-blue-50/50 dark:bg-blue-900/10 backdrop-blur-sm shadow-sm">
-              <CardContent className="p-6 h-full flex flex-col gap-4 text-center items-center justify-center text-muted-foreground">
-                <Globe className="h-12 w-12 text-blue-500 mb-2 opacity-50" />
-                <p className="font-medium">Modo Global Activo</p>
-                <p className="text-sm">Estás buscando en la base de datos abierta de OpenAlex con más de 200M de trabajos.</p>
-              </CardContent>
-            </Card>
-          )}
+          <Card className={cn(
+            "h-full border-border/50 backdrop-blur-sm shadow-sm transition-colors",
+            source === "local" ? "bg-card/50" : "bg-blue-50/20 border-blue-100"
+          )}>
+            <CardContent className="p-6 h-full">
+              <FilterContent />
+            </CardContent>
+          </Card>
         </aside>
 
         {/* Results Area */}

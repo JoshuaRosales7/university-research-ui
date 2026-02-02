@@ -27,7 +27,7 @@ import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/lib/auth-context"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseQuery } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 
 const roleConfigs: any = {
@@ -54,20 +54,22 @@ export default function PublicProfilePage() {
         setLoading(true)
         try {
             // 1. Fetch Profile Info
-            const { data: profileData, error: profileError } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', userId)
-                .single()
+            const { data: profileData, error: profileError } = await supabaseQuery(() =>
+                supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', userId)
+                    .single()
+            )
 
-            if (profileError) throw profileError
+            if (profileError || !profileData) throw profileError || new Error("Profile not found")
             setProfile(profileData)
 
             // 2. Fetch Stats & Graph
             const [followersRes, followingRes, isFollowingRes] = await Promise.all([
-                supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId),
-                supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId),
-                currentUser ? supabase.from('follows').select('*').eq('follower_id', currentUser.id).eq('following_id', userId).single() : Promise.resolve({ data: null })
+                supabaseQuery(() => supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', userId)),
+                supabaseQuery(() => supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', userId)),
+                currentUser ? supabaseQuery(() => supabase.from('follows').select('*').eq('follower_id', currentUser.id).eq('following_id', userId).single()) : Promise.resolve({ data: null, error: null })
             ])
 
             setStats({
@@ -78,12 +80,14 @@ export default function PublicProfilePage() {
 
             // 3. Fetch Public Investigations (only if public or isMe)
             if (profileData.is_public || currentUser?.id === userId) {
-                const { data: items, error: researchError } = await supabase
-                    .from('investigations')
-                    .select('*')
-                    .eq('owner_id', userId)
-                    .eq('status', 'aprobado')
-                    .order('created_at', { ascending: false })
+                const { data: items, error: researchError } = await supabaseQuery(() =>
+                    supabase
+                        .from('investigations')
+                        .select('*')
+                        .eq('owner_id', userId)
+                        .eq('status', 'aprobado')
+                        .order('created_at', { ascending: false })
+                )
 
                 if (researchError) throw researchError
                 setInvestigations(items || [])

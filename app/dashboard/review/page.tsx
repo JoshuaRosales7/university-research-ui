@@ -1,4 +1,3 @@
-// app/dashboard/review/page.tsx
 "use client"
 
 import { useState, useEffect } from "react"
@@ -16,7 +15,6 @@ import {
   Trash2,
   Download,
   SearchCheck,
-  Globe,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -33,13 +31,15 @@ import {
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
 import { useAuth } from "@/lib/auth-context"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseQuery } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useToast } from "@/components/ui/use-toast"
 
 export default function ReviewPanelPage() {
   const { user } = useAuth()
+  const { toast } = useToast()
+
   const [investigations, setInvestigations] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedResearch, setSelectedResearch] = useState<any | null>(null)
@@ -64,12 +64,22 @@ export default function ReviewPanelPage() {
   async function fetchInvestigations() {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('investigations')
-        .select('*')
-        .order('created_at', { ascending: false })
+      // Usamos supabaseQuery para retry automático
+      const { data, error } = await supabaseQuery(() =>
+        supabase
+          .from('investigations')
+          .select('*')
+          .order('created_at', { ascending: false })
+      )
 
-      if (error) throw error
+      if (error) {
+        toast({
+          variant: "destructive",
+          title: "Error al cargar",
+          description: "No se pudieron cargar las investigaciones. Reintentando...",
+        })
+        throw error
+      }
       setInvestigations(data || [])
     } catch (error) {
       console.error("Error fetching investigations:", error)
@@ -78,12 +88,15 @@ export default function ReviewPanelPage() {
     }
   }
 
-  const pending = investigations.filter(r => r.status === 'en_revision')
-  const approved = investigations.filter(r => r.status === 'aprobado')
-  const rejected = investigations.filter(r => r.status === 'rechazado')
+  const pending = investigations.filter(r => r.status === 'en_revision') || []
+  const approved = investigations.filter(r => r.status === 'aprobado') || []
+  const rejected = investigations.filter(r => r.status === 'rechazado') || []
 
   const handleReviewSubmit = async () => {
-    if (!selectedResearch || !reviewAction || !user) return
+    if (!selectedResearch || !reviewAction || !user) {
+      console.error("Faltan datos requeridos:", { selectedResearch, reviewAction, user })
+      return
+    }
 
     setIsSubmitting(true)
     try {
@@ -97,7 +110,11 @@ export default function ReviewPanelPage() {
           doi = await generateDOI(selectedResearch.id, selectedResearch)
         } catch (e) {
           console.error("Error generating DOI", e)
-          // Proceed even if DOI fails, but maybe log it
+          toast({
+            variant: "destructive",
+            title: "Advertencia",
+            description: "No se pudo generar el DOI automáticamente, pero el proceso continuará.",
+          })
         }
       }
 
@@ -106,14 +123,18 @@ export default function ReviewPanelPage() {
       if (doi) updateData.doi = doi
       if (plagiarismResult) updateData.plagiarism_score = plagiarismResult.score
 
+      console.log('Enviando actualización:', updateData)
+
       const { error } = await supabase
         .from('investigations')
         .update(updateData)
         .eq('id', selectedResearch.id)
 
-      if (error) throw error
+      if (error) {
+        console.error("Error de Supabase:", error)
+        throw new Error(error.message)
+      }
 
-      // Add feedback comment if provided
       // Add feedback comment if provided
       if (reviewComment.trim() || doi) {
         let content = ""
@@ -153,11 +174,16 @@ ${reviewComment || "No se proporcionaron detalles específicos."}
 Le invitamos a realizar las correcciones indicadas y volver a enviar su trabajo para una nueva revisión.`
         }
 
-        await supabase.from('comments').insert({
+        const { error: commentError } = await supabase.from('comments').insert({
           investigation_id: selectedResearch.id,
           user_id: user.id,
           content: content.trim(),
         })
+
+        if (commentError) {
+          console.error("Error creating comment:", commentError)
+          // No interrumpimos el flujo principal por un error en comentario
+        }
       }
 
       await fetchInvestigations()
@@ -168,8 +194,18 @@ Le invitamos a realizar las correcciones indicadas y volver a enviar su trabajo 
       setReviewComment("")
       setPlagiarismResult(null)
 
-    } catch (error) {
+      toast({
+        title: newStatus === 'aprobado' ? "Investigación Aprobada" : "Investigación Rechazada",
+        description: `Se ha actualizado el estado correctamente${doi ? ' y se ha asignado DOI' : ''}.`,
+      })
+
+    } catch (error: any) {
       console.error("Error submitting review:", error)
+      toast({
+        variant: "destructive",
+        title: "Error al actualizar",
+        description: error.message || "Ocurrió un error inesperado al procesar la revisión.",
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -185,9 +221,20 @@ Le invitamos a realizar las correcciones indicadas y volver a enviar su trabajo 
         .eq('id', id)
 
       if (error) throw error
+
+      toast({
+        title: "Investigación eliminada",
+        description: "El registro ha sido eliminado correctamente.",
+      })
+
       await fetchInvestigations()
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting:", error)
+      toast({
+        variant: "destructive",
+        title: "Error al eliminar",
+        description: error.message || "No se pudo eliminar el registro.",
+      })
     }
   }
 

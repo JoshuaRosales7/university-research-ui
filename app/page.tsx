@@ -1,58 +1,90 @@
-'use client'
-
 import Link from "next/link"
-import { Search, BookOpen, GraduationCap, Users, ArrowRight, Building2, Shield, Zap, Globe, Award, TrendingUp, FileText, Download, Eye, Star, Sparkles, CheckCircle2, Lock, Unlock, Database, BarChart3, X } from "lucide-react"
+import { Search, BookOpen, GraduationCap, Shield, Zap, Globe, TrendingUp, Database, BarChart3, Star, Sparkles, Eye, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { UniversityLogo } from "@/components/university-logo"
-import { useState, useEffect } from "react"
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseQuery } from "@/lib/supabase"
+import { StatsSection } from "@/components/landing/stats-section"
+import { AreasSection } from "@/components/landing/areas-section"
 
-// Modal Component
-function Modal({ isOpen, onClose, title, children }: { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode }) {
-  if (!isOpen) return null
+// Fetch all data server-side in parallel - OPTIMIZED
+async function getLandingPageData() {
+  try {
+    // Execute all queries in parallel for better performance
+    const [investigationsRes, allInvestigationsRes, docsCountRes, authorsCountRes] = await Promise.all([
+      // Recent investigations - only fetch needed fields
+      supabase
+        .from('investigations')
+        .select('id,title,abstract,author,slug,career,created_at')
+        .eq('status', 'aprobado')
+        .not('slug', 'is', null)
+        .order('created_at', { ascending: false })
+        .limit(6),
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-background border rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-300">
-        <div className="sticky top-0 bg-background/95 backdrop-blur-xl border-b px-6 py-4 flex items-center justify-between">
-          <h3 className="text-2xl font-black">{title}</h3>
-          <button
-            onClick={onClose}
-            className="h-8 w-8 rounded-full hover:bg-muted flex items-center justify-center transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="p-6">
-          {children}
-        </div>
-      </div>
-    </div>
-  )
-}
+      // All investigations for stats - only needed fields
+      supabase
+        .from('investigations')
+        .select('faculty,user_id,career')
+        .eq('status', 'aprobado'),
 
-// Stats Card Component
-function StatCard({ icon: Icon, value, label, description, color, onClick }: any) {
-  return (
-    <button
-      onClick={onClick}
-      className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-card to-card/50 border border-border/50 p-6 hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-1 text-left w-full"
-    >
-      <div className={`absolute top-0 right-0 w-32 h-32 ${color} opacity-5 rounded-full blur-3xl group-hover:opacity-10 transition-opacity`} />
-      <div className="relative">
-        <div className={`h-12 w-12 rounded-xl ${color} bg-opacity-10 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
-          <Icon className={`h-6 w-6 ${color}`} />
-        </div>
-        <h4 className="text-3xl font-black text-foreground mb-1">{value}</h4>
-        <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">{label}</p>
-        {description && (
-          <p className="text-xs text-muted-foreground/70 mt-2 line-clamp-2">{description}</p>
-        )}
-      </div>
-    </button>
-  )
+      // Document count
+      supabase
+        .from('investigations')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'aprobado'),
+
+      // Authors count
+      supabase
+        .from('profiles')
+        .select('*', { count: 'exact', head: true })
+    ])
+
+    const investigations = investigationsRes.data || []
+    const allInvestigations = allInvestigationsRes.data || []
+
+    // Calculate faculty statistics efficiently
+    const facultyMap = new Map<string, { count: number; authors: Set<string>; careers: Set<string> }>()
+
+    allInvestigations.forEach((inv) => {
+      const faculty = inv.faculty || 'Sin clasificar'
+      if (!facultyMap.has(faculty)) {
+        facultyMap.set(faculty, { count: 0, authors: new Set(), careers: new Set() })
+      }
+      const stats = facultyMap.get(faculty)!
+      stats.count++
+      if (inv.user_id) stats.authors.add(inv.user_id)
+      if (inv.career) stats.careers.add(inv.career)
+    })
+
+    const facultyStats = Array.from(facultyMap.entries())
+      .map(([name, data]) => ({
+        name,
+        count: data.count,
+        authors: data.authors.size,
+        careers: data.careers.size
+      }))
+      .sort((a, b) => b.count - a.count)
+
+    const stats = {
+      documents: docsCountRes.count || 0,
+      authors: authorsCountRes.count || 0,
+      faculties: facultyMap.size || 0
+    }
+
+    return {
+      investigations,
+      stats,
+      facultyStats
+    }
+  } catch (error) {
+    console.error('Error fetching landing page data:', error)
+    // Return empty data on error
+    return {
+      investigations: [],
+      stats: { documents: 0, authors: 0, faculties: 0 },
+      facultyStats: []
+    }
+  }
 }
 
 // Feature Card Component
@@ -69,143 +101,9 @@ function FeatureCard({ icon: Icon, title, description, color, gradient }: any) {
   )
 }
 
-// Area Card Component  
-function AreaCard({ label, icon: Icon, color, bg, description, stats }: any) {
-  const [isOpen, setIsOpen] = useState(false)
-
-  return (
-    <>
-      <button
-        onClick={() => setIsOpen(true)}
-        className="group relative overflow-hidden rounded-3xl bg-card border border-border/50 p-6 hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 hover:-translate-y-2 text-left w-full"
-      >
-        <div className={`absolute top-0 right-0 w-32 h-32 ${bg} opacity-20 rounded-full blur-3xl group-hover:opacity-40 transition-opacity`} />
-        <div className="relative">
-          <div className={`h-14 w-14 rounded-2xl ${bg} ${color} flex items-center justify-center mb-4 group-hover:scale-110 group-hover:rotate-6 transition-all duration-300`}>
-            <Icon className="h-7 w-7" />
-          </div>
-          <h3 className="font-black text-xl mb-2">{label}</h3>
-          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{description}</p>
-          <div className="flex items-center gap-2 text-xs font-semibold">
-            <span className={`${color}`}>Ver más</span>
-            <ArrowRight className={`h-3 w-3 ${color} group-hover:translate-x-1 transition-transform`} />
-          </div>
-        </div>
-      </button>
-
-      <Modal isOpen={isOpen} onClose={() => setIsOpen(false)} title={label}>
-        <div className="space-y-6">
-          <div className={`h-20 w-20 rounded-3xl ${bg} ${color} flex items-center justify-center`}>
-            <Icon className="h-10 w-10" />
-          </div>
-
-          <div>
-            <h4 className="font-bold text-lg mb-2">Descripción</h4>
-            <p className="text-muted-foreground leading-relaxed">{description}</p>
-          </div>
-
-          {stats && (
-            <div>
-              <h4 className="font-bold text-lg mb-3">Estadísticas</h4>
-              <div className="grid grid-cols-2 gap-4">
-                {stats.map((stat: any, i: number) => (
-                  <div key={i} className="bg-muted/50 rounded-xl p-4">
-                    <div className="text-2xl font-black mb-1">{stat.value}</div>
-                    <div className="text-sm text-muted-foreground">{stat.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <Button asChild className="w-full" size="lg">
-            <Link href={`/dashboard/explore?faculty=${encodeURIComponent(label)}`}>
-              Explorar {label}
-            </Link>
-          </Button>
-        </div>
-      </Modal>
-    </>
-  )
-}
-
-export default function LandingPage() {
-  const [investigations, setInvestigations] = useState<any[]>([])
-  const [stats, setStats] = useState({ documents: 0, authors: 0, faculties: 0 })
-  const [facultyStats, setFacultyStats] = useState<any[]>([])
-  const [modalContent, setModalContent] = useState<{ isOpen: boolean; title: string; content: React.ReactNode }>({
-    isOpen: false,
-    title: '',
-    content: null
-  })
-
-  useEffect(() => {
-    async function fetchData() {
-      // Fetch investigations
-      const { data: invData } = await supabase
-        .from('investigations')
-        .select('*')
-        .eq('status', 'aprobado')
-        .not('slug', 'is', null)
-        .order('created_at', { ascending: false })
-        .limit(6)
-
-      setInvestigations(invData || [])
-
-      // Fetch all approved investigations for stats
-      const { data: allInvestigations } = await supabase
-        .from('investigations')
-        .select('faculty,user_id,career')
-        .eq('status', 'aprobado')
-
-      // Fetch stats
-      const [docsRes, authorsRes] = await Promise.all([
-        supabase.from('investigations').select('*', { count: 'exact', head: true }).eq('status', 'aprobado'),
-        supabase.from('profiles').select('*', { count: 'exact', head: true })
-      ])
-
-      // Calculate faculty statistics
-      const facultyMap = new Map<string, { count: number; authors: Set<string>; careers: Set<string> }>()
-
-      allInvestigations?.forEach((inv) => {
-        const faculty = inv.faculty || 'Sin clasificar'
-        if (!facultyMap.has(faculty)) {
-          facultyMap.set(faculty, { count: 0, authors: new Set(), careers: new Set() })
-        }
-        const stats = facultyMap.get(faculty)!
-        stats.count++
-        if (inv.user_id) stats.authors.add(inv.user_id)
-        if (inv.career) stats.careers.add(inv.career)
-      })
-
-      const facultyStatsArray = Array.from(facultyMap.entries()).map(([name, data]) => ({
-        name,
-        count: data.count,
-        authors: data.authors.size,
-        careers: data.careers.size
-      })).sort((a, b) => b.count - a.count)
-
-      setFacultyStats(facultyStatsArray)
-
-      const uniqueFaculties = facultyMap.size
-
-      setStats({
-        documents: docsRes.count || 0,
-        authors: authorsRes.count || 0,
-        faculties: uniqueFaculties || 0
-      })
-    }
-
-    fetchData()
-  }, [])
-
-  const openModal = (title: string, content: React.ReactNode) => {
-    setModalContent({ isOpen: true, title, content })
-  }
-
-  const closeModal = () => {
-    setModalContent({ isOpen: false, title: '', content: null })
-  }
+export default async function LandingPage() {
+  // Fetch all data server-side - this runs on the server, not the client
+  const { investigations, stats, facultyStats } = await getLandingPageData()
 
   return (
     <div className="min-h-screen bg-background flex flex-col font-sans selection:bg-primary/20">
@@ -271,149 +169,8 @@ export default function LandingPage() {
               </form>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6 max-w-5xl mx-auto mt-16 pt-16 border-t border-border/40 animate-in fade-in zoom-in duration-1000 delay-300">
-              <StatCard
-                icon={FileText}
-                value={`${stats.documents}+`}
-                label="Documentos"
-                description="Investigaciones aprobadas y publicadas"
-                color="text-blue-500"
-                onClick={() => openModal('Documentos Académicos', (
-                  <div className="space-y-4">
-                    <div className="bg-gradient-to-br from-blue-500/10 to-blue-600/10 rounded-2xl p-6 border border-blue-500/20">
-                      <FileText className="h-12 w-12 text-blue-500 mb-4" />
-                      <h4 className="font-bold text-2xl mb-2">{stats.documents}+ Documentos</h4>
-                      <p className="text-muted-foreground">Nuestra colección incluye tesis de grado, artículos científicos, proyectos de investigación y publicaciones académicas de alta calidad.</p>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-muted/50 rounded-xl p-4">
-                        <CheckCircle2 className="h-6 w-6 text-green-500 mb-2" />
-                        <div className="font-bold">Revisión por pares</div>
-                        <div className="text-sm text-muted-foreground">Todos los documentos son validados</div>
-                      </div>
-                      <div className="bg-muted/50 rounded-xl p-4">
-                        <Download className="h-6 w-6 text-blue-500 mb-2" />
-                        <div className="font-bold">Descarga gratuita</div>
-                        <div className="text-sm text-muted-foreground">Acceso abierto 100%</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              />
-
-              <StatCard
-                icon={Users}
-                value={`${stats.authors}+`}
-                label="Autores"
-                description="Investigadores registrados en la plataforma"
-                color="text-amber-500"
-                onClick={() => openModal('Comunidad de Investigadores', (
-                  <div className="space-y-4">
-                    <div className="bg-gradient-to-br from-amber-500/10 to-amber-600/10 rounded-2xl p-6 border border-amber-500/20">
-                      <Users className="h-12 w-12 text-amber-500 mb-4" />
-                      <h4 className="font-bold text-2xl mb-2">{stats.authors}+ Investigadores</h4>
-                      <p className="text-muted-foreground">Una comunidad activa de estudiantes, profesores y académicos comprometidos con la generación de conocimiento.</p>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 bg-muted/50 rounded-xl p-4">
-                        <GraduationCap className="h-8 w-8 text-amber-500" />
-                        <div>
-                          <div className="font-bold">Estudiantes</div>
-                          <div className="text-sm text-muted-foreground">Tesistas y colaboradores</div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3 bg-muted/50 rounded-xl p-4">
-                        <Award className="h-8 w-8 text-amber-500" />
-                        <div>
-                          <div className="font-bold">Profesores</div>
-                          <div className="text-sm text-muted-foreground">Asesores y directores</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              />
-
-              <StatCard
-                icon={Building2}
-                value={stats.faculties}
-                label="Facultades"
-                description="Áreas de conocimiento representadas"
-                color="text-rose-500"
-                onClick={() => openModal('Facultades Participantes', (
-                  <div className="space-y-4">
-                    <div className="bg-gradient-to-br from-rose-500/10 to-rose-600/10 rounded-2xl p-6 border border-rose-500/20">
-                      <Building2 className="h-12 w-12 text-rose-500 mb-4" />
-                      <h4 className="font-bold text-2xl mb-2">{stats.faculties} Facultades</h4>
-                      <p className="text-muted-foreground">Investigación multidisciplinaria que abarca diversas áreas del conocimiento humano.</p>
-                    </div>
-                    <div className="bg-muted/50 rounded-xl p-4">
-                      <h5 className="font-bold mb-3">Áreas activas:</h5>
-                      <div className="space-y-2 max-h-64 overflow-y-auto">
-                        {facultyStats.map((faculty, index) => {
-                          const colors = ['bg-blue-500', 'bg-amber-500', 'bg-rose-500', 'bg-emerald-500', 'bg-purple-500', 'bg-cyan-500']
-                          const color = colors[index % colors.length]
-                          return (
-                            <div key={faculty.name} className="flex items-center justify-between text-sm bg-background/50 rounded-lg p-3 hover:bg-background transition-colors">
-                              <div className="flex items-center gap-3">
-                                <div className={`h-2 w-2 rounded-full ${color}`} />
-                                <span className="font-medium">{faculty.name}</span>
-                              </div>
-                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                                <span>{faculty.count} {faculty.count === 1 ? 'investigación' : 'investigaciones'}</span>
-                                <span>•</span>
-                                <span>{faculty.authors} {faculty.authors === 1 ? 'autor' : 'autores'}</span>
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              />
-
-              <StatCard
-                icon={Unlock}
-                value="100%"
-                label="Acceso Abierto"
-                description="Todo el contenido es de libre acceso"
-                color="text-emerald-500"
-                onClick={() => openModal('Acceso Abierto', (
-                  <div className="space-y-4">
-                    <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-600/10 rounded-2xl p-6 border border-emerald-500/20">
-                      <Unlock className="h-12 w-12 text-emerald-500 mb-4" />
-                      <h4 className="font-bold text-2xl mb-2">100% Acceso Abierto</h4>
-                      <p className="text-muted-foreground">Creemos en la democratización del conocimiento. Todo nuestro contenido está disponible gratuitamente para la comunidad global.</p>
-                    </div>
-                    <div className="space-y-3">
-                      <div className="flex items-start gap-3 bg-muted/50 rounded-xl p-4">
-                        <Globe className="h-6 w-6 text-emerald-500 mt-1" />
-                        <div>
-                          <div className="font-bold">Sin barreras</div>
-                          <div className="text-sm text-muted-foreground">No requiere suscripción ni pago</div>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3 bg-muted/50 rounded-xl p-4">
-                        <Eye className="h-6 w-6 text-emerald-500 mt-1" />
-                        <div>
-                          <div className="font-bold">Visibilidad global</div>
-                          <div className="text-sm text-muted-foreground">Indexado en buscadores académicos</div>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3 bg-muted/50 rounded-xl p-4">
-                        <Download className="h-6 w-6 text-emerald-500 mt-1" />
-                        <div>
-                          <div className="font-bold">Descarga libre</div>
-                          <div className="text-sm text-muted-foreground">PDFs completos sin restricciones</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              />
-            </div>
+            {/* Stats Grid - Client Component */}
+            <StatsSection stats={stats} facultyStats={facultyStats} />
           </div>
         </section>
 
@@ -537,68 +294,8 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Areas of Knowledge */}
-        <section className="py-24 bg-muted/30">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-16 space-y-4">
-              <h2 className="text-3xl md:text-5xl font-black tracking-tight">Áreas de Conocimiento</h2>
-              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-                Explora investigaciones organizadas por disciplina académica
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {facultyStats.length > 0 ? (
-                facultyStats.map((faculty, index) => {
-                  // Assign colors and icons based on index or faculty name
-                  const colorSchemes = [
-                    { color: "text-blue-500", bg: "bg-blue-500/10", icon: Building2 },
-                    { color: "text-amber-500", bg: "bg-amber-500/10", icon: Users },
-                    { color: "text-rose-500", bg: "bg-rose-500/10", icon: Building2 },
-                    { color: "text-emerald-500", bg: "bg-emerald-500/10", icon: BookOpen },
-                    { color: "text-purple-500", bg: "bg-purple-500/10", icon: GraduationCap },
-                    { color: "text-cyan-500", bg: "bg-cyan-500/10", icon: Award },
-                  ]
-                  const scheme = colorSchemes[index % colorSchemes.length]
-
-                  // Generate description based on faculty name
-                  const getDescription = (name: string) => {
-                    const descriptions: { [key: string]: string } = {
-                      'Ingeniería': 'Innovación tecnológica, desarrollo de software, sistemas electrónicos, infraestructura y soluciones de ingeniería aplicada a problemas reales.',
-                      'Ciencias Humanas': 'Estudios sociales, psicología, educación, antropología y análisis del comportamiento humano en diversos contextos culturales.',
-                      'Arquitectura': 'Diseño urbano, planificación arquitectónica, sostenibilidad, patrimonio cultural y desarrollo de espacios habitables innovadores.',
-                      'Ciencias Económicas': 'Análisis económico, administración de empresas, finanzas, marketing, emprendimiento y desarrollo de modelos de negocio.',
-                      'Ciencias de la Salud': 'Investigación médica, salud pública, enfermería, nutrición y promoción del bienestar integral de la población.',
-                      'Derecho': 'Análisis jurídico, derechos humanos, legislación, justicia social y desarrollo del marco legal contemporáneo.',
-                    }
-                    return descriptions[name] || `Investigaciones y estudios especializados en el área de ${name}, contribuyendo al desarrollo académico y científico de la disciplina.`
-                  }
-
-                  return (
-                    <AreaCard
-                      key={faculty.name}
-                      label={faculty.name}
-                      icon={scheme.icon}
-                      color={scheme.color}
-                      bg={scheme.bg}
-                      description={getDescription(faculty.name)}
-                      stats={[
-                        { value: `${faculty.count}`, label: faculty.count === 1 ? 'Investigación' : 'Investigaciones' },
-                        { value: `${faculty.authors}`, label: faculty.authors === 1 ? 'Investigador' : 'Investigadores' },
-                        ...(faculty.careers > 0 ? [{ value: `${faculty.careers}`, label: faculty.careers === 1 ? 'Carrera' : 'Carreras' }] : [])
-                      ]}
-                    />
-                  )
-                })
-              ) : (
-                <div className="col-span-full py-12 text-center">
-                  <Building2 className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
-                  <p className="text-muted-foreground">Cargando áreas de conocimiento...</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+        {/* Areas of Knowledge - Client Component */}
+        <AreasSection facultyStats={facultyStats} />
 
         {/* CTA Section */}
         <section className="py-24 relative overflow-hidden">
@@ -652,11 +349,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-
-      {/* Modal */}
-      <Modal isOpen={modalContent.isOpen} onClose={closeModal} title={modalContent.title}>
-        {modalContent.content}
-      </Modal>
     </div>
   )
 }
