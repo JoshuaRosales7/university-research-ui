@@ -74,10 +74,10 @@ export default function AdminDashboardPage() {
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="divide-y divide-border/40">
-                            <UserRow name="Dra. Ana Valenzuela" email="ana.v@unis.edu.gt" role="docente" status="active" />
-                            <UserRow name="Carlos Mendizabal" email="carlos.m@unis.edu.gt" role="estudiante" status="pending" />
+                            <UserRow name="Dra. Ana Valenzuela" email="ana.v@unis.edu.gt" role="publicador" status="active" />
+                            <UserRow name="Carlos Mendizabal" email="carlos.m@unis.edu.gt" role="usuario" status="pending" />
                             <UserRow name="Roberto Gomez" email="rgomez@unis.edu.gt" role="admin" status="active" />
-                            <UserRow name="Lucia Perez" email="lperez@unis.edu.gt" role="estudiante" status="active" />
+                            <UserRow name="Lucia Perez" email="lperez@unis.edu.gt" role="usuario" status="active" />
                         </div>
                         <div className="p-4 bg-muted/10 text-center">
                             <Button variant="link" className="font-bold text-xs gap-2">

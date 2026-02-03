@@ -1,34 +1,43 @@
-export const DSPACE_CONFIG = {
-  baseUrl: "/api/dspace",
-  // Authentication endpoints
-  endpoints: {
-    auth: {
-      status: "/authn/status",
-      login: "/authn/login",
-      logout: "/authn/logout",
-    },
-    security: {
-      csrf: "/security/csrf",
-    },
-    core: {
-      communities: "/core/communities",
-      collections: "/core/collections",
-      items: "/core/items",
-      bundles: "/core/bundles",
-      bitstreams: "/core/bitstreams",
-    },
-    discover: {
-      search: "/discover/search/objects",
-    },
-    submission: {
-      workspaceitems: "/submission/workspaceitems",
-    },
-    eperson: {
-      epersons: "/eperson/epersons",
-      groups: "/eperson/groups",
-      registrations: "/eperson/registrations",
-    },
+export const APP_CONFIG = {
+  // Configuración de Permisos
+  permissions: {
+    // Roles permitidos para subir nuevas investigaciones
+    // Opciones: 'admin', 'docente', 'estudiante'
+    uploadResearch: ['admin', 'publicador'] as string[],
+
+    // Roles permitidos para acceder al panel de revisión
+    reviewPanel: ['admin', 'publicador'] as string[],
   },
+
+  // Límites de Carga
+  uploads: {
+    maxFiles: 1,
+    maxSizeMB: 10,
+    allowedExtensions: ['.pdf'],
+  },
+
+  // Configuración General
+  features: {
+    enablePublicRegistration: true,
+    enableComments: true,
+  }
 }
 
-export type DSpaceEndpoints = typeof DSPACE_CONFIG.endpoints
+// Helper para verificar permisos fácilmente
+export const canUploadResearch = (userOrRole?: string | { role: string; canUpload?: boolean } | null) => {
+  if (!userOrRole) return false
+
+  if (typeof userOrRole === 'string') {
+    return APP_CONFIG.permissions.uploadResearch.includes(userOrRole)
+  }
+
+  const roleAllowed = APP_CONFIG.permissions.uploadResearch.includes(userOrRole.role)
+  const userAllowed = userOrRole.canUpload !== false
+
+  return roleAllowed && userAllowed
+}
+
+export const canAccessReviewPanel = (role?: string) => {
+  if (!role) return false
+  return APP_CONFIG.permissions.reviewPanel.includes(role)
+}

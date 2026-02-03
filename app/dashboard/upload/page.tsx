@@ -54,11 +54,13 @@ interface FormData {
   file: File | null
 }
 
+import { canUploadResearch } from "@/lib/config"
+
 export default function UploadPage() {
   const router = useRouter()
   const { user } = useAuth()
 
-  if (user && user.role !== 'admin') {
+  if (user && !canUploadResearch(user)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4 animate-in fade-in zoom-in duration-300">
         <div className="bg-muted/30 p-8 rounded-full ring-1 ring-border/50">
@@ -67,7 +69,9 @@ export default function UploadPage() {
         <div className="space-y-2">
           <h1 className="text-2xl font-black tracking-tight">Acceso Restringido</h1>
           <p className="text-muted-foreground max-w-md font-medium">
-            La carga de nuevas investigaciones está habilitada únicamente para administradores en este momento.
+            {user.canUpload === false
+              ? "Tu cuenta ha sido restringida para subir nuevos documentos. Contacta al administrador."
+              : "La carga de nuevas investigaciones está habilitada únicamente para roles autorizados."}
           </p>
         </div>
         <Button asChild variant="default" className="font-bold rounded-xl mt-4">
@@ -375,7 +379,7 @@ export default function UploadPage() {
 
                 <div className="space-y-4">
                   <Label className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Asesor / Tutor</Label>
-                  <Input value={formData.advisor} onChange={e => setFormData({ ...formData, advisor: e.target.value })} placeholder="Nombre del docente guía..." className="h-14 rounded-2xl border-border/40 font-bold px-6 bg-background/50" />
+                  <Input value={formData.advisor} onChange={e => setFormData({ ...formData, advisor: e.target.value })} placeholder="Nombre del asesor encargado..." className="h-14 rounded-2xl border-border/40 font-bold px-6 bg-background/50" />
                 </div>
 
                 <div className="space-y-4">

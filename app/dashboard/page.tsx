@@ -15,8 +15,8 @@ export default function DashboardPage() {
   if (!user) return null
 
   const isAdmin = user.role === "admin"
-  const isDocente = user.role === "docente"
-  const isEstudiante = user.role === "estudiante"
+  const isPublicador = user.role === "publicador"
+  const isUsuario = user.role === "usuario"
 
   const firstName = user.firstName || "Usuario"
 
@@ -35,8 +35,8 @@ export default function DashboardPage() {
           </div>
           <p className="text-base md:text-lg text-muted-foreground font-medium max-w-2xl leading-relaxed">
             {isAdmin ? "Panel de control centralizado para la gestión del conocimiento global de la UNIS." :
-              isDocente ? "Evalúa la calidad académica y consulta los hallazgos más recientes de tu unidad." :
-                "Impulsa tu formación explorando el repositorio o documentando tus nuevos hallazgos."}
+              isPublicador ? "Evalúa la calidad académica y consulta los hallazgos más recientes de tu unidad." :
+                "Explora el repositorio para impulsar tu formación."}
           </p>
         </div>
       </div>
@@ -44,7 +44,7 @@ export default function DashboardPage() {
       {/* Stats Overview */}
       <StatsCards />
 
-      {(isAdmin || isDocente) && (
+      {(isAdmin || isPublicador) && (
         <div className="space-y-4">
           <h2 className="text-xl font-bold tracking-tight">Análisis de la Plataforma</h2>
           <AdminAnalytics />
@@ -59,7 +59,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2 space-y-6 md:space-y-8">
           <QuickActions />
 
-          {(isAdmin || isDocente) && (
+          {(isAdmin || isPublicador) && (
             <div className="p-4 md:p-6 rounded-2xl md:rounded-3xl bg-secondary/50 border border-secondary/20 shadow-inner">
               <h3 className="font-bold text-base md:text-lg mb-3 md:mb-4 flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />

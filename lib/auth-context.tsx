@@ -11,7 +11,7 @@ interface AuthContextType {
   isLoading: boolean
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>
-  register: (data: { email: string; password: string; firstName: string; lastName: string; role: "admin" | "docente" | "estudiante" }) => Promise<{ success: boolean; error?: string }>
+  register: (data: { email: string; password: string; firstName: string; lastName: string; role: "admin" | "publicador" | "usuario" }) => Promise<{ success: boolean; error?: string }>
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
   checkAuth: () => Promise<void>
@@ -70,7 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       firstName: profile?.first_name || supabaseUser.user_metadata?.first_name || "",
       lastName: profile?.last_name || supabaseUser.user_metadata?.last_name || "",
       fullName: profile?.full_name || supabaseUser.user_metadata?.full_name || "",
-      role: profile?.role || (supabaseUser.user_metadata?.role as any) || "estudiante",
+      role: profile?.role || (supabaseUser.user_metadata?.role as any) || "usuario",
+      canUpload: profile?.can_upload ?? true,
       avatarUrl: profile?.avatar_url || supabaseUser.user_metadata?.avatar_url || "",
     }
   }, [])
@@ -169,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string;
     firstName: string;
     lastName: string;
-    role: "admin" | "docente" | "estudiante"
+    role: "admin" | "publicador" | "usuario"
   }): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true)
     try {

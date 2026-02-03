@@ -54,8 +54,8 @@ export default function ReviewPanelPage() {
   const [fileRequestSent, setFileRequestSent] = useState(false)
 
   const isAdmin = user?.role === "admin"
-  const isDocente = user?.role === "docente"
-  const canReview = isAdmin || isDocente
+  const isPublicador = user?.role === "publicador"
+  const canReview = isAdmin || isPublicador
 
   useEffect(() => {
     if (canReview) {
@@ -249,7 +249,7 @@ Le invitamos a realizar las correcciones indicadas y volver a enviar su trabajo 
         </div>
         <h1 className="text-2xl font-bold">Acceso Restringido</h1>
         <p className="text-muted-foreground max-w-md">
-          Solo personal docente y administrativo puede acceder al Panel de Revisión.
+          Solo administradores y publicadores pueden acceder al Panel de Revisión.
         </p>
         <Button asChild variant="outline">
           <Link href="/dashboard">Volver al Inicio</Link>

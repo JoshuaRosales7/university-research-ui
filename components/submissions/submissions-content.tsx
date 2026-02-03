@@ -11,6 +11,8 @@ import { ResearchCard } from "@/components/research/research-card"
 import { useMyWorkspaceItems } from "@/lib/hooks"
 import { useAuth } from "@/lib/auth-context"
 
+import { canUploadResearch } from "@/lib/config"
+
 export function SubmissionsContent() {
   const { user } = useAuth()
   const { data: submissions, isLoading } = useMyWorkspaceItems(user?.id)
@@ -52,7 +54,7 @@ export function SubmissionsContent() {
           <h1 className="text-4xl font-black tracking-tighter text-foreground">Mis Envíos</h1>
           <p className="text-muted-foreground font-medium text-lg">Gestiona y consulta el estado de tus investigaciones institucionales.</p>
         </div>
-        {user?.role === 'admin' && (
+        {canUploadResearch(user) && (
           <Button asChild size="lg" className="h-14 px-8 shadow-2xl shadow-primary/20 transition-all font-black uppercase tracking-widest rounded-2xl active:scale-95">
             <Link href="/dashboard/upload" className="gap-3">
               <Plus className="h-6 w-6" />

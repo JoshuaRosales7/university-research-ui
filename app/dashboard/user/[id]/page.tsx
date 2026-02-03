@@ -31,9 +31,12 @@ import { supabase, supabaseQuery } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 
 const roleConfigs: any = {
-    estudiante: { label: "Estudiante", class: "bg-blue-100 text-blue-700 border-blue-200", icon: GraduationCap },
-    docente: { label: "Docente", class: "bg-amber-100 text-amber-700 border-amber-200", icon: Building }, // Use Building as fallback
+    usuario: { label: "Usuario", class: "bg-gray-100 text-gray-700 border-gray-200", icon: User },
+    publicador: { label: "Publicador", class: "bg-blue-100 text-blue-700 border-blue-200", icon: BookOpen },
     admin: { label: "Administrador", class: "bg-red-100 text-red-700 border-red-200", icon: ShieldCheck },
+    // Fallbacks for legacy
+    estudiante: { label: "Estudiante", class: "bg-blue-100 text-blue-700 border-blue-200", icon: GraduationCap },
+    docente: { label: "Docente", class: "bg-amber-100 text-amber-700 border-amber-200", icon: Building },
 }
 
 export default function PublicProfilePage() {
@@ -159,7 +162,7 @@ export default function PublicProfilePage() {
         )
     }
 
-    const role = roleConfigs[profile.role] || roleConfigs.estudiante
+    const role = roleConfigs[profile.role] || roleConfigs.usuario
     const isMe = currentUser?.id === profile.id
     const isPrivate = !profile.is_public && !isMe
 
@@ -189,7 +192,7 @@ export default function PublicProfilePage() {
                 <div className="lg:col-span-4 space-y-6">
                     <Card className="border-0 shadow-lg ring-1 ring-border/50 overflow-hidden relative rounded-3xl group">
                         {/* Decorative background gradient */}
-                        <div className={`absolute top-0 inset-x-0 h-32 bg-gradient-to-b ${profile.role === 'admin' ? 'from-red-500/10' : profile.role === 'docente' ? 'from-amber-500/10' : 'from-blue-500/10'} to-transparent`} />
+                        <div className={`absolute top-0 inset-x-0 h-32 bg-gradient-to-b ${profile.role === 'admin' ? 'from-red-500/10' : profile.role === 'publicador' ? 'from-blue-500/10' : 'from-gray-500/10'} to-transparent`} />
 
                         <CardContent className="relative pt-12 px-6 pb-8 flex flex-col items-center text-center space-y-4">
                             <div className="relative">

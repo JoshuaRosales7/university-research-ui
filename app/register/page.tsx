@@ -23,7 +23,7 @@ export default function RegisterPage() {
         email: "",
         password: "",
         confirmPassword: "",
-        role: "estudiante" as "admin" | "docente" | "estudiante"
+        role: "usuario" as "admin" | "publicador" | "usuario" // Default role
     })
 
     // Auto-redirect if already logged in
@@ -132,8 +132,8 @@ export default function RegisterPage() {
                                 <GraduationCap className="h-5 lg:h-6 w-5 lg:w-6 text-white" />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-sm lg:text-base">Perfil Estudiantil</h3>
-                                <p className="text-white/60 text-xs lg:text-sm">Gestiona tus tesis y recursos de estudio.</p>
+                                <h3 className="font-semibold text-sm lg:text-base">Perfil de Usuario</h3>
+                                <p className="text-white/60 text-xs lg:text-sm">Explora recursos de investigación y tesis.</p>
                             </div>
                         </div>
                         <div className="flex items-center gap-3 lg:gap-4 bg-white/5 p-3 lg:p-4 rounded-lg lg:rounded-xl border border-white/10 backdrop-blur-md">
@@ -141,7 +141,7 @@ export default function RegisterPage() {
                                 <School className="h-5 lg:h-6 w-5 lg:w-6 text-white" />
                             </div>
                             <div>
-                                <h3 className="font-semibold text-sm lg:text-base">Perfil Docente</h3>
+                                <h3 className="font-semibold text-sm lg:text-base">Perfil de Publicador</h3>
                                 <p className="text-white/60 text-xs lg:text-sm">Evalúa investigaciones y publica tus avances.</p>
                             </div>
                         </div>
@@ -174,7 +174,7 @@ export default function RegisterPage() {
                                     </Alert>
                                 )}
 
-                                {/* Role selection removed - Defaults to Estudiante */}
+                                {/* Role selection removed - Defaults to Usuario */}
 
                                 <div className="grid grid-cols-2 gap-2 md:gap-4">
                                     <div className="space-y-1.5 md:space-y-2">

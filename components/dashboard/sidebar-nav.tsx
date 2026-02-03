@@ -51,13 +51,18 @@ export function SidebarNav({ collapsed, onToggle }: SidebarNavProps) {
   if (!user) return null
 
   const isAdmin = user.role === "admin"
-  const isDocente = user.role === "docente"
-  const isEstudiante = user.role === "estudiante"
+  const isPublicador = user.role === "publicador"
+  // const isUsuario = user.role === "usuario" // Not used for now
+
+  // Logic:
+  // Admin -> All menus
+  // Publicador -> Submissions, Reviews
+  // Usuario -> Common (Inicio, Explore) [already included] + NOTHING else
 
   const allNavItems = [
     ...commonItems,
-    ...(isEstudiante || isDocente || isAdmin ? submissionItems : []),
-    ...(isDocente || isAdmin ? reviewerItems : []),
+    ...(isPublicador || isAdmin ? submissionItems : []),
+    ...(isPublicador || isAdmin ? reviewerItems : []),
     ...(isAdmin ? adminItems : [])
   ]
 

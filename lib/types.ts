@@ -200,7 +200,8 @@ export interface Profile {
   first_name: string | null
   last_name: string | null
   avatar_url: string | null
-  role: 'admin' | 'docente' | 'estudiante'
+  role: 'admin' | 'publicador' | 'usuario'
+  can_upload?: boolean
   updated_at?: string
 }
 
@@ -210,7 +211,8 @@ export interface AppUser {
   firstName: string
   lastName: string
   fullName: string
-  role: "admin" | "docente" | "estudiante"
+  role: "admin" | "publicador" | "usuario"
+  canUpload?: boolean
   avatarUrl?: string
   // Keep original fields for backward compatibility if needed, 
   // but we'll primarily use the ones above.

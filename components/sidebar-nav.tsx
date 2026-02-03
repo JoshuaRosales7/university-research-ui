@@ -26,12 +26,15 @@ interface SidebarNavProps {
 
 const navItems = [
   { href: "/dashboard", icon: Home, label: "Inicio" },
-  { href: "/dashboard/upload", icon: Upload, label: "Subir Investigación" },
-  { href: "/dashboard/my-submissions", icon: FileText, label: "Mis Envíos" },
   { href: "/dashboard/explore", icon: Search, label: "Explorar" },
 ]
 
-const docenteItems = [{ href: "/dashboard/review", icon: ClipboardCheck, label: "Panel de Revisión" }]
+const publisherItems = [
+  { href: "/dashboard/upload", icon: Upload, label: "Subir Investigación" },
+  { href: "/dashboard/my-submissions", icon: FileText, label: "Mis Envíos" },
+]
+
+const reviewItems = [{ href: "/dashboard/review", icon: ClipboardCheck, label: "Panel de Revisión" }]
 
 const adminItems = [{ href: "/dashboard/admin", icon: Settings, label: "Administración" }]
 
@@ -39,10 +42,23 @@ export function SidebarNav({ collapsed, onToggle }: SidebarNavProps) {
   const pathname = usePathname()
   const { user, logout } = useAuth()
 
-  const isDocente = user?.role === "docente" || user?.role === "admin"
+  // Roles
   const isAdmin = user?.role === "admin"
+  const isPublicador = user?.role === "publicador" || isAdmin
+  const isUsuario = user?.role === "usuario"
 
-  const allNavItems = [...navItems, ...(isDocente ? docenteItems : []), ...(isAdmin ? adminItems : [])]
+  // Merge items
+  const allNavItems = [
+    ...navItems,
+    ...(isPublicador ? publisherItems : []),
+    ...(isPublicador ? reviewItems : []),
+    ...(isAdmin ? adminItems : [])
+  ]
+
+  // Debug logs
+  console.log("SidebarNav - User:", user)
+  console.log("SidebarNav - Role:", user?.role)
+  console.log("SidebarNav - isPublicador:", isPublicador)
 
   const handleLogout = async () => {
     await logout()
@@ -112,7 +128,12 @@ export function SidebarNav({ collapsed, onToggle }: SidebarNavProps) {
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate text-sidebar-foreground">{user?.fullName || "Usuario"}</p>
-              <p className="text-xs text-sidebar-foreground/60 capitalize">{user?.role || "usuario"}</p>
+              <p className="text-xs text-sidebar-foreground/60 capitalize">
+                {user?.role || "usuario"}
+                <span className="text-[10px] text-red-500 ml-2 font-bold bg-white/10 px-1 rounded">
+                  D: {user?.role}
+                </span>
+              </p>
             </div>
           )}
         </Link>
